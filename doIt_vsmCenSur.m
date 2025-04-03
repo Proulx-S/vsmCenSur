@@ -2,8 +2,8 @@ clear all
 close all
 
 dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
-%%%%%%%%%
-%% Set up 
+%%%%%%%%%%%%%%%%%%%%%
+%% Set up environment 
 %%%%%%%%%
 % Detect computing environment
 os   = char(java.lang.System.getProperty('os.name'));
@@ -58,7 +58,7 @@ switch envId
         %     setenv("PATH",getenv("PATH") + neurodeskModule{i});
         % end
 end
-%% %%%%%%
+%% %%%%%%%%%%%%%%%%%%
 
 
 
@@ -68,10 +68,30 @@ end
 % Load data index file
 disp('Loading index file...')
 index = load(dataIndexFile);
-subList = index.QA.subList;
-acqList = cat(2,index.QA.label{:}); acqList = cat(1,acqList{:}); acqList = unique(acqList);
-acqList = acqList([4 3 2 1]);
 rCond   = index.rCond; index = rmfield(index,'rCond');
+subList = index.QA.subList;
+subList = subList([1 3 4 5 6 7 8 9 2]);
+rCond   = rCond([1 3 4 5 6 7 8 9 2]);
+fieldNames = fieldnames(index.QA);
+for i = 1:length(fieldNames)
+    index.QA.(fieldNames{i}) = index.QA.(fieldNames{i})([1 3 4 5 6 7 8 9 2]);
+end
+disp('Subjects:')
+disp(char(subList))
+disp('---------')
+acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
+acqList(ismember(acqList,'phs')) = []; acqList = acqList([5 4 3 2 1]);
+disp('Acquisition conditions:')
+disp(char(acqList))
+disp('---------')
+
+% Add prcSmr
+for S = 1:length(rCond)
+    for A = 1:length(acqList)
+        if ~isfield(rCond{S},acqList{A}); continue; end
+        rCond{S}.(acqList{A}).prcSmr
+    end
+end
 
 %% %%%%%%%%%%%%%%%%%%%%%%
 
@@ -100,16 +120,17 @@ verboseThis = 1;
 
 for S = 1:length(rCond)
     info.sub = subList{S};
-    for rca = 1:length(runCondAcqList)
-        if ~strcmp(runCondAcqList{rca},'vfMRI'); continue; end
-        if ~isfield(rCond{S},runCondAcqList{rca}); continue; end
+    for A = 1:length(acqList)
+        if ~isfield(rCond{S},acqList{A}); continue; end
+        % if ~strcmp(acqList{A},'vfMRI'); continue; end
+        % if ~isfield(rCond{S},acqList{A}); continue; end
         % if any(S==[6]); keyboard; end
-        if isfield(rCond{S},'avMap')
-            [out,avMap] = volAnatPreproc5(do,info,rCond{S}.(runCondAcqList{rca}),rCond{S}.avMap,forceThis,forceRoi);
-        else
-            [out,avMap] = volAnatPreproc5(do,info,rCond{S}.(runCondAcqList{rca}),rCond{S}.QA.(runCondAcqList{rca}).prcSmr,runCondAcqList{rca},[],forceThis,forceRoi);
-            rCond{S}.(runCondAcqList{rca}).anat = out;
-        end
+        % if isfield(rCond{S},'avMap')
+        %     [out,avMap] = volAnatPreproc5(do,info,rCond{S}.(acqList{A}),rCond{S}.avMap,forceThis,forceRoi);
+        % else
+            [out,avMap] = volAnatPreproc5(do,info,rCond{S}.(acqList{A}),rCond{S}.QA.(acqList{A}).prcSmr,acqList{A},[],forceThis,forceRoi);
+            rCond{S}.(acqList{A}).anat = out;
+        % end
         disp('----')
         disp(out.mask.vessel.f)
     end
@@ -186,7 +207,7 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 save(fullfile('doIt_vsmDriven','tmp.mat'),'-v7.3')
-end
+
 load(fullfile('doIt_vsmDriven','tmp.mat'))
 
 
@@ -249,7 +270,7 @@ return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 verboseThis = 2;
 
-acq          = runCondAcqList{  contains(runCondAcqList ,{'vfMRI'})           };
+acq          = acqList{  contains(acqList ,{'vfMRI'})           };
 taskList = runCondStimList(~contains(runCondStimList,{'task_eyeOpenRest' 'task_fixOnly'}));
 
 % Compute
@@ -850,7 +871,7 @@ return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 verboseThis = 2;
 
-acq          = runCondAcqList{  contains(runCondAcqList ,{'vfMRI'})           };
+acq          = acqList{  contains(acqList ,{'vfMRI'})           };
 taskList = runCondStimList(~contains(runCondStimList,{'task_eyeOpenRest'}));
 
 % Compute
@@ -1224,7 +1245,7 @@ return
 %%%%%%%%%%%%%
 verboseThis = 2;
 
-acq  = runCondAcqList {contains(runCondAcqList ,'vfMRI')           };
+acq  = acqList {contains(acqList ,'vfMRI')           };
 task = runCondStimList{contains(runCondStimList,'task_50sPrd5sDur')};
 res = [];
 
@@ -1593,7 +1614,7 @@ return
 %% Visualize Individual Runs  %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 S = 1;
-acq  = runCondAcqList{ contains(runCondAcqList ,'vfMRI'  )};
+acq  = acqList{ contains(acqList ,'vfMRI'  )};
 task = runCondStimList{contains(runCondStimList,'task_50sPrd5sDur')};
 
 
@@ -2024,7 +2045,7 @@ do.writeIt = 1;
 
 for S = 1:5
     task = runCondStimList{contains(runCondStimList,'task_50sPrd5sDur')};
-    acq  = runCondAcqList{ contains(runCondAcqList ,'vfMRI'  )};
+    acq  = acqList{ contains(acqList ,'vfMRI'  )};
     if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
 
     %anat
@@ -2167,7 +2188,7 @@ do.writeIt = 0;
 
 S = 2;
 task = runCondStimList{contains(runCondStimList,'task_20sPrd1sDur')};
-acq  = runCondAcqList{ contains(runCondAcqList ,'vfMRI'  )};
+acq  = acqList{ contains(acqList ,'vfMRI'  )};
 
 %anat
 volAnat = rCond{S}.(acq).(task).volAnatSub;
@@ -2215,7 +2236,7 @@ do.writeIt = 1;
 
 S = 1;
 task = runCondStimList{contains(runCondStimList,'task_50sPrd5sDur')};
-acq  = runCondAcqList{ contains(runCondAcqList ,'vfMRI'  )};
+acq  = acqList{ contains(acqList ,'vfMRI'  )};
 
 %anat
 volAnat = rCond{S}.(acq).(task).volAnatSub;
@@ -2384,7 +2405,7 @@ do.writeIt = 1;
 
 S = 1;
 task = runCondStimList{contains(runCondStimList,'task_50sPrd5sDur')};
-acq  = runCondAcqList{ contains(runCondAcqList ,'vfMRI'  )};
+acq  = acqList{ contains(acqList ,'vfMRI'  )};
 
 %anat
 volAnat = rCond{S}.(acq).(task).volAnatSub;
