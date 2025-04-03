@@ -2,6 +2,12 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../../tools/vasomoTools"
+		},
+		{
+			"path": "../../tools/chronux/chronux_2_12/modified"
 		}
 	],
 	"settings": {}

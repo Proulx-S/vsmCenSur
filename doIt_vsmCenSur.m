@@ -81,22 +81,107 @@ disp(char(subList))
 disp('---------')
 acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
 acqList(ismember(acqList,'phs')) = []; acqList = acqList([5 4 3 2 1]);
-disp('Acquisition conditions:')
 disp(char(acqList))
+disp('Acquisition conditions:')
 disp('---------')
-
-% Add prcSmr
+taskList = {};
 for S = 1:length(rCond)
     for A = 1:length(acqList)
         if ~isfield(rCond{S},acqList{A}); continue; end
-        rCond{S}.(acqList{A}).prcSmr
+        taskList = cat(1,taskList,fields(rCond{S}.(acqList{A})));
     end
 end
+taskList = unique(taskList);
+taskList = taskList([3 1 2]);
+disp('Tasks:')
+disp(char(taskList))
+disp('---------')
 
+% Assert runCond
+disp('Asserting runCond...')
+% disp('getting tr from nifti headers')
+for S = 1:length(rCond)
+    disp(['getting tr from nifti headers (S=' num2str(S) '/' num2str(length(rCond)) ')'])
+    for A = 1:length(acqList)
+        if ~isfield(rCond{S},acqList{A}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T}; if ~isfield(rCond{S}.(acqList{A}),task) || isempty(rCond{S}.(acqList{A}).(task)); continue; end
+            if isempty(rCond{S}.(acqList{A}).(task).tr)
+                for R = 1:size(rCond{S}.(acqList{A}).(task).fPreprocList,1)
+                    mri = MRIread(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},1);
+                    rCond{S}.(acqList{A}).(task).tr(R,1) = mri.tr/1000;
+                end
+            end
+        end
+    end
+end
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 
 
+
+
+
+forceThis   = 0;
+verboseThis = 1;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Response estimation and activation detection processing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%
+%%% NOTE: Need to figure out run order. Probably need to perform a sort according to acquisition time. More importantly, run-r in the bids filename might not always match the run index here in matlab (e.g. bids run-r might not be starting at and increasing by 1, and some runs might be excluded)
+%%%
+
+if 1
+    for S = 7%1:size(subList,1)
+        % info.sub = subList{S};
+        % acqList = fields(rCond{S}); acqList(ismember(acqList,{'phs' 'QA'})) = [];
+        for A = 1:length(acqList)
+            acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+
+            % %anat
+            % hdMask = rCond{S}.(acq).anat.mask.head;
+            % veMask = rCond{S}.(acq).anat.label.vessel;
+
+            % taskList = fields(rCond{S}.(acq));
+            % taskList(~contains(taskList,'task_'           )) = [];
+            % taskList( ismember(taskList,'task_eyeOpenRest')) = [];
+            % taskList( ismember(taskList,'task_fixOnly'    )) = [];
+
+            for T = 1:length(taskList)
+                task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+                rCond{S}.(acq).(task).volResp = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+                
+                
+
+                %ts
+                % fList = rCond{S}.(acq).(task).fPreprocList(:,1);
+                % mList = rCond{S}.(acq).(task).fPreprocMaskList(:,1);
+                % rCond{S}.(acq).(task).volTs.f = fList;
+                % info.nDummy = rCond{S}.(acq).(task).nDummy;
+                
+                % for i = 1:length(volTs)
+                %     volTs(i).mri.nFrame     = volTs(i).nFrame;
+                %     volTs(i).mri.nFrameOrig = volTs(i).nFrameOrig;
+                %     volTs(i).tr = volTs(i).mri.tr;
+                % end
+                % % [volTs.mri.nFrame] = deal(349);
+                % % [volTs.nFrame] = deal(349);
+
+                % %dsgn
+                % dsgn = rCond{S}.(acq).(task).dsgn;
+
+                % %resp
+                % % info.doCat = 0;
+                % % info.doRun = 1;
+                
+                
+                
+            end
+        end
+    end
+end
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 return
@@ -138,73 +223,6 @@ end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Response estimation and activation detection processing
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%
-%%% NOTE: Need to figure out run order. Probably need to perform a sort according to acquisition time. More importantly, run-r in the bids filename might not always match the run index here in matlab (e.g. bids run-r might not be starting at and increasing by 1, and some runs might be excluded)
-%%%
-
-if 1
-    do.loadIt   = 0;
-    do.doIt     = 1;
-    do.saveIt   = 0;
-    do.writeIt  = 1;
-    forceThis   = 0;
-    verboseThis = 1;
-
-    for S = 1:size(rCond,1)
-        % acqList = fields(rCond{S}); acqList(ismember(acqList,{'phs' 'QA'})) = [];
-        acqList = {'vfMRI'};
-        for A = 1:length(acqList)
-            acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
-
-            %anat
-            hdMask = rCond{S}.(acq).anat.mask.head;
-            veMask = rCond{S}.(acq).anat.label.vessel;
-
-            taskList = fields(rCond{S}.(acq));
-            taskList(~contains(taskList,'task_'           )) = [];
-            taskList( ismember(taskList,'task_eyeOpenRest')) = [];
-            taskList( ismember(taskList,'task_fixOnly'    )) = [];
-
-            for T = 1:length(taskList)
-                task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-
-                %ts
-                volTs = cpInfoDown(...
-                    rCond{S}.(acq).(task),...
-                    rCond{S}.(acq).(task).volTs);
-                volTs = MRIload3(volTs,[],[],1);
-                for i = 1:length(volTs)
-                    volTs(i).mri.nFrame     = volTs(i).nFrame;
-                    volTs(i).mri.nFrameOrig = volTs(i).nFrameOrig;
-                    volTs(i).tr = volTs(i).mri.tr;
-                end
-                % [volTs.mri.nFrame] = deal(349);
-                % [volTs.nFrame] = deal(349);
-
-                %dsgn
-                dsgn = rCond{S}.(acq).(task).dsgn;
-
-                %resp
-                % info.doCat = 0;
-                % info.doRun = 1;
-                try
-                    % load('/home/sebp/work/vsmDriven/doIt_vsmDriven/errorData_S-5_A-1_T-4.mat')
-                    rCond{S}.(acq).(task).volResp = getVolResp(info,volTs,dsgn,hdMask,forceThis,verboseThis);
-                catch err
-                    save(fullfile(workDir,['errorData_S-' num2str(S) '_A-' num2str(A) '_T-' num2str(T) '.mat']),'-v7.3')
-                end
-                close all
-
-            end
-        end
-    end
-end
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 save(fullfile('doIt_vsmDriven','tmp.mat'),'-v7.3')
 
