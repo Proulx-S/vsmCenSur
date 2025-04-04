@@ -136,7 +136,7 @@ if 1
     for S = 7%1:size(subList,1)
         % info.sub = subList{S};
         % acqList = fields(rCond{S}); acqList(ismember(acqList,{'phs' 'QA'})) = [];
-        for A = 1:length(acqList)
+        for A = 1%1:length(acqList)
             acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
 
             % %anat
