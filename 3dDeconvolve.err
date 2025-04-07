@@ -1,1 +1,2 @@
-*+ WARNING: Smallest FDR q [50 50sPrd5sDur_stimImag_Fstat] = 0.121018 ==> few true single voxel detections
+*+ WARNING: Input polort=0; Longest run=295.7 s; Recommended minimum polort=2
+*+ WARNING: Smallest FDR q [31 50sPrd5sDur_stimReal_Fstat] = 0.999898 ==> few true single voxel detections

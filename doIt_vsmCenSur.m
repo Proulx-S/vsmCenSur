@@ -66,24 +66,27 @@ end
 %% Load preprocessed data
 %%%%%%%%%%%%%%%%%%%%%%%%%
 % Load data index file
+reorderSubj = [1 3 4 5 6 7 8 2];
 disp('Loading index file...')
 index = load(dataIndexFile);
 rCond   = index.rCond; index = rmfield(index,'rCond');
 subList = index.QA.subList;
-subList = subList([1 3 4 5 6 7 8 9 2]);
-rCond   = rCond([1 3 4 5 6 7 8 9 2]);
+subList = subList(reorderSubj);
+rCond   = rCond(reorderSubj);
 fieldNames = fieldnames(index.QA);
 for i = 1:length(fieldNames)
-    index.QA.(fieldNames{i}) = index.QA.(fieldNames{i})([1 3 4 5 6 7 8 9 2]);
+    index.QA.(fieldNames{i}) = index.QA.(fieldNames{i})(reorderSubj);
 end
 disp('Subjects:')
 disp(char(subList))
 disp('---------')
+reorderAcq = [4 3 2 1];
 acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
-acqList(ismember(acqList,'phs')) = []; acqList = acqList([5 4 3 2 1]);
+acqList(ismember(acqList,{'phs' 'QA'})) = []; acqList = acqList(reorderAcq);
 disp(char(acqList))
 disp('Acquisition conditions:')
 disp('---------')
+reorderTask = [3 1 2];
 taskList = {};
 for S = 1:length(rCond)
     for A = 1:length(acqList)
@@ -92,7 +95,7 @@ for S = 1:length(rCond)
     end
 end
 taskList = unique(taskList);
-taskList = taskList([3 1 2]);
+taskList = taskList(reorderTask);
 disp('Tasks:')
 disp(char(taskList))
 disp('---------')
