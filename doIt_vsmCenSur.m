@@ -31,6 +31,9 @@ addpath(genpath(         workDir                                 ))
 tool = 'vasomoTools'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
+tool = 'util'; toolURL = 'https://github.com/Proulx-S/util.git';
+if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
+addpath(genpath(fullfile(toolDir,tool)))
 tool = 'chronux'; toolURL = 'https://github.com/Proulx-S/chronux';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,'chronux/chronux_2_12/modified')))
@@ -109,12 +112,13 @@ for S = 1:length(rCond)
         if ~isfield(rCond{S},acqList{A}); continue; end
         for T = 1:length(taskList)
             task = taskList{T}; if ~isfield(rCond{S}.(acqList{A}),task) || isempty(rCond{S}.(acqList{A}).(task)); continue; end
-            if isempty(rCond{S}.(acqList{A}).(task).tr)
+            % if isempty(rCond{S}.(acqList{A}).(task).tr)
                 for R = 1:size(rCond{S}.(acqList{A}).(task).fPreprocList,1)
-                    mri = MRIread(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},1);
-                    rCond{S}.(acqList{A}).(task).tr(R,1) = mri.tr/1000;
+                    rCond{S}.(acqList{A}).(task).tr(R,1) = MRIget(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},'tr');
+                    % mri = MRIread(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},1);
+                    % rCond{S}.(acqList{A}).(task).tr(R,1) = mri.tr/1000;
                 end
-            end
+            % end
         end
     end
 end
@@ -134,12 +138,11 @@ verboseThis = 1;
 %%%
 %%% NOTE: Need to figure out run order. Probably need to perform a sort according to acquisition time. More importantly, run-r in the bids filename might not always match the run index here in matlab (e.g. bids run-r might not be starting at and increasing by 1, and some runs might be excluded)
 %%%
-
 if 1
-    for S = 7%1:size(subList,1)
+    for S = 1:size(subList,1)
         % info.sub = subList{S};
         % acqList = fields(rCond{S}); acqList(ismember(acqList,{'phs' 'QA'})) = [];
-        for A = 1%1:length(acqList)
+        for A = 1:length(acqList)
             acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
 
             % %anat
@@ -152,8 +155,24 @@ if 1
             % taskList( ismember(taskList,'task_fixOnly'    )) = [];
 
             for T = 1:length(taskList)
+                % if S==2 && A==4 && T==3; forceThis = 1; end
                 task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-                rCond{S}.(acq).(task).volResp = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+                [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+                                               rCond{S}.(acq).(task).volResp.mag       = volResp;
+                if ~isempty(volRespCmplx);     rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;     end
+                if ~isempty(volRespCmplxMag1); rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1; end
+
+
+                % strjoin([cellstr(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv)
+                % cellstr([char(rCond{S}.(acq).(task).volResp.mag.respCat.fStat) '+orig'])
+                % rCond{S}.(acq).(task).volResp.mag.respCat.stats.fPoly0Base_catAv
+                % rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp],' ')
+                
+
+                % strjoin([cellstr(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv)
+                % cellstr([char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.fStat) '+orig'])
+                % rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv(1,3:4)'
+                % permute(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fResp(1,1,3:4),[3 1 2])],' ')
                 
                 
 
@@ -185,6 +204,85 @@ if 1
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+disp([cellstr(num2str((1:length(rCond))')) subList])
+disp(acqList)
+disp(taskList)
+for S = 1:length(rCond)
+    disp(rCond{S})
+end
+
+S = 5;
+A = 1
+T = 2;
+disp(subList{S})
+disp(acqList{A})
+disp(taskList{T})
+
+S=5;
+f1 = char(rCond{S}.vfMRI_dflt_none.task_50sPrd10sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2 = char(strjoin([rCond{S}.vfMRI_dflt_none.task_50sPrd10sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fTmp = tempname; mkdir(fTmp); copyfile([f2 '*'],fTmp); [a,b,c] = fileparts(f2); fTmp = fullfile(fTmp,b);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fTmp ' \'];
+cmd{end+1} = f1;
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+disp(strjoin([
+cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd10sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(fTmp)
+cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd10sDur.volResp.mag.respCat.fResp)
+],' '))
+
+f1pc = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2pc = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fTmppc = tempname; mkdir(fTmppc); copyfile([f2pc '*'],fTmppc); [a,b,c] = fileparts(f2pc); fTmppc = fullfile(fTmppc,b);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fTmppc ' \'];
+cmd{end+1} = f1pc;
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+disp(strjoin([
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(fTmppc)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.respCat.fResp)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3})
+],' '))
+
+
+
+S=6; %no clear center-surround
+S=7; % not super clear
+
+S=8;
+f1 = char(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2 = char(strjoin([rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fTmp = tempname; mkdir(fTmp); copyfile([f2 '*'],fTmp); [a,b,c] = fileparts(f2); fTmp = fullfile(fTmp,b);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fTmp ' \'];
+cmd{end+1} = f1;
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+disp(strjoin([
+cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(fTmp)
+cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.fResp)
+],' '))
+
+f1pc = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2pc = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fTmppc = tempname; mkdir(fTmppc); copyfile([f2pc '*'],fTmppc); [a,b,c] = fileparts(f2pc); fTmppc = fullfile(fTmppc,b);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fTmppc ' \'];
+cmd{end+1} = f1pc;
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+disp(strjoin([
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(fTmppc)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.respCat.fResp)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3})
+],' '))
 
 
 return
