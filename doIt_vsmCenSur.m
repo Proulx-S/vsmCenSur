@@ -124,61 +124,6 @@ for S = 1:length(rCond)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%
 
-return
-
-%% Censore bad timepoints
-%%% Plot QA correlation matrix
-fig = index.QA.fig{end}{2};
-fig.hAfter = open(fig.fAfter);
-fig.hAfter.UserData.fileNames
-tmp = strsplit(fig.hAfter.UserData.fileNames{1},'_'); tmp{contains(tmp,'run-')} = 'run-cat'; tmp = strjoin(tmp,'_')
-
-%%% Get correlation matrix
-ax = findobj(fig.hAfter.Children,'Type','Axes'    );
-cb = findobj(fig.hAfter.Children,'Type','ColorBar');
-im = findobj(ax,'Type','Image');
-rho = im.CData;
-
-%%% Explore clusters from QA correlation matrix
-Z = linkage(squareform(1-rho), 'average'); % Convert correlation to distance
-figure('WindowStyle','docked');
-[H, T, perm] = dendrogram(Z, 0, 'Reorder',1:length(rho),'ColorThreshold',0.25,'Orientation','right');
-ax = gca; ax.YDir = 'reverse';
-ax.YTick = [];
-
-k = 4;
-clusters_h = cluster(Z, 'maxclust', k); % Adjust number of clusters as needed
-
-
-
-%%% Plot all clusters
-% figure(fig.hAfter);
-yyaxis right
-plot(clusters_h,'k','LineWidth',2);
-ylim([0 k+1])
-ax.PlotBoxAspectRatio = [1 1 1];
-cb.Position(1) = cb.Position(1) + 0.05;
-
-%%% Plot largest cluster
-[a,b,c] = unique(clusters_h);
-cLarge = mode(c)==c;
-yyaxis left; hold on
-plot(cLarge.*size(rho,1).*0.05 + 1,'-m');
-
-cIn = false(size(rho,1),1);
-cIn = cIn|cLarge;
-cLarge = mode(c(~cIn))==c;
-plot(size(rho,1) - cLarge.*size(rho,1).*0.05,'-m');
-
-% %%% Choose clusters to keep
-% [a,b,c] = unique(clusters_h);
-% cKeep = mode(c)==c;
-% im.CData = rho;
-% im.CData(:,~cKeep) = nan;
-
-% cKeep = cKeep | mode(c(~cKeep))==c;
-% im.CData = rho;
-% im.CData(:,~cKeep) = nan;
 
 
 
