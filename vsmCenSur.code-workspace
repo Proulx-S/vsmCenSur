@@ -10,5 +10,8 @@
 			"path": "../../tools/util"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"MATLAB.startDebuggerAutomatically": true,
+		"MATLAB.telemetry": false
+	}
 }
