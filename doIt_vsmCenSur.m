@@ -129,7 +129,7 @@ disp('---------')
 
 
 
-forceThis   = 1;
+forceThis   = 0;
 verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
@@ -146,13 +146,6 @@ if 1
             acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
 
 
-            %%% FORCE
-            if contains(acq,'vfMRIpc')
-                forceThis = 1;
-            else
-                forceThis = 0;
-            end
-
             % %anat
             % hdMask = rCond{S}.(acq).anat.mask.head;
             % veMask = rCond{S}.(acq).anat.label.vessel;
@@ -163,7 +156,6 @@ if 1
             % taskList( ismember(taskList,'task_fixOnly'    )) = [];
 
             for T = 1:length(taskList)
-                % if S==2 && A==4 && T==3; forceThis = 1; end
                 task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
 
                 [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
@@ -244,20 +236,34 @@ cellstr(fTmp)
 cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd10sDur.volResp.mag.respCat.fResp)
 ],' '))
 
-f1pc = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fCondCoef_adj);
-f2pc = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+f1pc   = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f1pc   = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2pc   = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
 fTmppc = tempname; mkdir(fTmppc); copyfile([f2pc '*'],fTmppc); [a,b,c] = fileparts(f2pc); fTmppc = fullfile(fTmppc,b);
 cmd ={src.afni};
 cmd{end+1} = '3dbucket \';
 cmd{end+1} = ['-glueto ' fTmppc ' \'];
 cmd{end+1} = f1pc;
+cmd{end+1} = ['gunzip ' fTmppc '.BRIK.gz'];
 [status,cmdout] = system(strjoin(cmd,newline),'-echo');
 disp(strjoin([
 cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv{3})
 cellstr(fTmppc)
 cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.respCat.fResp)
 cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3})
 ],' '))
+
+disp(strjoin([
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv{3})
+cellstr([fTmppc '.*'])
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.mag.respCat.fResp)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd10sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3})
+],','))
+
+scp sebp@takoyaki1:{/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-venc0_part-mag_task-50sPrd10sDur_run-cat_angio/av_preproc_volTsAv.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-vencDiff7z_part-realImagMag1_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-FULL_model-TENTzero_run-catAv_poly0basePhase.nii.gz,/tmp/tp92350ce6_3ccb_436c_95ac_bc1428617114/task-50sPrd10sDur_cond-FULL_model-SPMG2_stats+orig,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-venc0_part-mag_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-stim_model-TENTzero_respAv.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-vencDiff7z_part-realImagMag1_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-stim_model-TENTzero_respAvPhase.nii.gz} .
+rsync sebp@takoyaki1:{/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-venc0_part-mag_task-50sPrd10sDur_run-cat_angio/av_preproc_volTsAv.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-vencDiff7z_part-realImagMag1_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-FULL_model-TENTzero_run-catAv_poly0basePhase.nii.gz,/tmp/tpee6c3a08_79f5_420d_b9da_0ae3acda9444/task-50sPrd10sDur_cond-FULL_model-SPMG2_stats+orig.*,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-venc0_part-mag_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-stim_model-TENTzero_respAv.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP6/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP1_ses-1_acq-pcVenc7z_rec-vencDiff7z_part-realImagMag1_task-50sPrd10sDur_run-cat_angio/task-50sPrd10sDur_cond-stim_model-TENTzero_respAvPhase.nii.gz} .
 
 
 
@@ -272,6 +278,7 @@ cmd ={src.afni};
 cmd{end+1} = '3dbucket \';
 cmd{end+1} = ['-glueto ' fTmp ' \'];
 cmd{end+1} = f1;
+cmd{end+1} = ['gunzip ' fTmp '.BRIK.gz'];
 [status,cmdout] = system(strjoin(cmd,newline),'-echo');
 disp(strjoin([
 cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
@@ -279,13 +286,14 @@ cellstr(fTmp)
 cellstr(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.fResp)
 ],' '))
 
-f1pc = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_adj);
-f2pc = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+f1pc   = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2pc   = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
 fTmppc = tempname; mkdir(fTmppc); copyfile([f2pc '*'],fTmppc); [a,b,c] = fileparts(f2pc); fTmppc = fullfile(fTmppc,b);
 cmd ={src.afni};
 cmd{end+1} = '3dbucket \';
 cmd{end+1} = ['-glueto ' fTmppc ' \'];
 cmd{end+1} = f1pc;
+cmd{end+1} = ['gunzip ' fTmppc '.BRIK.gz'];
 [status,cmdout] = system(strjoin(cmd,newline),'-echo');
 disp(strjoin([
 cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
@@ -295,19 +303,124 @@ cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respC
 ],' '))
 
 
-mriR = MRIread('/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc7ap_rec-vencDiff7apSlc_part-real_task-50sPrd5sDur_run-cat_angio/av_preproc_volTs.nii.gz');
-mriI = MRIread('/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc7ap_rec-vencDiff7apSlc_part-imag_task-50sPrd5sDur_run-cat_angio/av_preproc_volTs.nii.gz');
-[theta,rho] = cart2pol(mriR.vol,mriI.vol);
-figure('WindowStyle','docked');
-imagesc(theta,[-pi pi]);
-colormap gray
-figure('WindowStyle','docked');
-imagesc(rho);
-colormap gray
+f1pc   = char(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_adj);
+f2pc   = char(strjoin([rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fTmppc = tempname; mkdir(fTmppc); copyfile([f2pc '*'],fTmppc); [a,b,c] = fileparts(f2pc); fTmppc = fullfile(fTmppc,b);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fTmppc ' \'];
+cmd{end+1} = f1pc;
+cmd{end+1} = ['gunzip ' fTmppc '.BRIK.gz'];
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+disp(strjoin([
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.actCat.stats.fTsAvBase_catAv)
+cellstr([fTmppc '.*'])
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.mag.respCat.fResp)
+cellstr(rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3} )
+],','))
 
-ax = gca;
-ax.XDir = 'reverse';
+rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3}
 
+rsync sebp@takoyaki1:{/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc7ap_rec-venc0_part-mag_task-50sPrd5sDur_run-cat_angio/av_preproc_volTsAv.nii.gz,/tmp/tp9bc2e31e_dbef_4d76_9f6e_940f7bdd82c4/task-50sPrd5sDur_cond-FULL_model-SPMG2_stats+orig.*,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc7ap_rec-venc0_part-mag_task-50sPrd5sDur_run-cat_angio/task-50sPrd5sDur_cond-stim_model-TENTzero_respAv.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc7ap_rec-vencDiff7apSlc_part-realImagMag1_task-50sPrd5sDur_run-cat_angio/task-50sPrd5sDur_cond-stim_model-TENTzero_respAvPhase.nii.gz,/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc14ap_rec-vencDiff14apSlc_part-realImagMag1_task-50sPrd5sDur_run-1_angio/task-50sPrd5sDur_cond-stim_model-TENTzero_respAvPhase.nii.gz} .
+rsync sebp@takoyaki1:/scratch/users/Proulx-S/doIt_generalPreproc/vsmDiamCenSur/prc/sub-vsmDiamCenSurP10/ses-1/acq-vfMRIpc_prsc-dflt/sub-vsmDiamCenSurP5_ses-1_acq-pcVenc14ap_rec-vencDiff14apSlc_part-realImagMag1_task-50sPrd5sDur_run-1_angio/task-50sPrd5sDur_cond-stim_model-TENTzero_respAvPhase.nii.gz venc14_respAvPhase.nii.gz
+
+
+
+
+cmd = {src.afni};
+
+tmpDir = fullfile('.',subList{S},'venc14_cmplxMag1');
+cmd{end+1} = ['rm -fr ' tmpDir];
+cmd{end+1} = ['mkdir -p ' tmpDir];
+cmd{end+1} = ['rsync sebp@takoyaki1:{' strjoin(...
+{[char(rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respCat.fStat) '+orig.*']
+rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respCat.stats.fResp{1,1,3}},...
+    ',') '} ' tmpDir '/'];
+cmd{end+1} = ['cd ' tmpDir];
+
+
+tmpDir = fullfile('.',subList{S},'venc14_cmplx');
+cmd{end+1} = ['rm -fr ' tmpDir];
+cmd{end+1} = ['mkdir -p ' tmpDir];
+cmd{end+1} = ['rsync sebp@takoyaki1:{' strjoin(...
+{[char(rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplx.respCat.fStat) '+orig.*']
+rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplx.respCat.stats.fResp{1,1,3}},...
+    ',') '} ' tmpDir '/'];
+cmd{end+1} = ['cd ' tmpDir];
+
+disp(strjoin(cmd,newline))
+
+
+
+S = 7;
+acq  = 'vfMRIpc_dflt_pcVenc7ap';
+task = 'task_50sPrd5sDur';
+tmpDir = tempname; mkdir(tmpDir);
+%%% get mag activation map
+f1        = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj);
+f2        = char(strjoin([rCond{S}.(acq).(task).volResp.mag.actCat.stats.fStat {'+orig'}],''));
+fActStats = fullfile(tmpDir,'magAct+orig');
+copyfile([f2 '.BRIK'],[fActStats '.BRIK']);
+copyfile([f2 '.HEAD'],[fActStats '.HEAD']);
+cmd ={src.afni};
+cmd{end+1} = '3dbucket \';
+cmd{end+1} = ['-glueto ' fActStats ' \'];
+cmd{end+1} = f1;
+cmd{end+1} = ['gunzip ' fActStats '.BRIK.gz'];
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+%%% get venc14
+fVenc14Resp = [];
+if isfield(rCond{S}, 'vfMRIpc_dflt_pcVenc14ap')
+    fVenc14Resp = fullfile(tmpDir,'venc14_resp.nii.gz');
+    copyfile(rCond{S}.vfMRIpc_dflt_pcVenc14ap.(task).volResp.cmplxMag1.respCat.stats.fResp{1,1,3},fVenc14Resp);
+end
+%%% get timeseires averaged across runs
+fRealTs       = rCond{S}.(acq).(task).fPreprocList(:,2);
+fImagTs       = rCond{S}.(acq).(task).fPreprocList(:,3);
+fRealRunAvTs  = fullfile(tmpDir,'realTs.nii.gz');
+fImagRunAvTs  = fullfile(tmpDir,'imagTs.nii.gz');
+fMagRunAvTs   = fullfile(tmpDir,'magTs.nii.gz');
+fPhaseRunAvTs = fullfile(tmpDir,'phaseTs.nii.gz');
+cmd = {src.afni};
+cmd{end+1} = '3dMean \'; 
+cmd{end+1} = ['-prefix ' fRealRunAvTs ' \'];
+cmd{end+1} = strjoin(fRealTs,' ');
+cmd{end+1} = '3dMean \'; 
+cmd{end+1} = ['-prefix ' fImagRunAvTs ' \'];
+cmd{end+1} = strjoin(fImagTs,' ');
+cmd{end+1} = '3dcalc \';
+cmd{end+1} = ['-a ' fRealRunAvTs ' \'];  
+cmd{end+1} = ['-b ' fImagRunAvTs ' \'];
+cmd{end+1} = ['-expr ''sqrt(a*a + b*b)'' \'];
+cmd{end+1} = ['-prefix ' fMagRunAvTs];
+cmd{end+1} = '3dcalc \';
+cmd{end+1} = ['-a ' fRealRunAvTs ' \'];
+cmd{end+1} = ['-b ' fImagRunAvTs ' \'];
+cmd{end+1} = ['-expr ''atan2(b,a)'' \'];
+cmd{end+1} = ['-prefix ' fPhaseRunAvTs];
+[status,cmdout] = system(strjoin(cmd,newline),'-echo');
+%%% Send to afni
+cmd = {src.afni};
+cmd{end+1} = 'cd ~/Desktop';
+tmpDir = fullfile('.',subList{S},[acq '_' task]);
+cmd{end+1} = ['rm -fr ' tmpDir];
+cmd{end+1} = ['mkdir -p ' tmpDir];
+transferList = {
+    [fActStats '.*']
+    [char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.fStat) '+orig.*']
+    rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fResp{1,1,3}
+    fPhaseRunAvTs
+    fMagRunAvTs
+};
+if ~isempty(fVenc14Resp)
+    transferList{end+1} = fVenc14Resp;
+end
+cmd{end+1} = ['rsync sebp@takoyaki1:{' strjoin(...
+    transferList,...
+    ',') '} ' tmpDir '/'];
+cmd{end+1} = ['cd ' tmpDir];
+cmd{end+1} = 'afni .';
+disp(strjoin(cmd,newline))
 
 
 
