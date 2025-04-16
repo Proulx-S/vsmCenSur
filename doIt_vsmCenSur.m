@@ -4,7 +4,7 @@ close all
 dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
 %%%%%%%%%%%%%%%%%%%%%
 %% Set up environment 
-%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
 % Detect computing environment
 os   = char(java.lang.System.getProperty('os.name'));
 host = char(java.net.InetAddress.getLocalHost.getHostName);
@@ -104,24 +104,24 @@ disp(char(taskList))
 disp('---------')
 
 % Assert runCond
-disp('Asserting runCond...')
-% disp('getting tr from nifti headers')
-for S = 1:length(rCond)
-    disp(['getting tr from nifti headers (S=' num2str(S) '/' num2str(length(rCond)) ')'])
-    for A = 1:length(acqList)
-        if ~isfield(rCond{S},acqList{A}); continue; end
-        for T = 1:length(taskList)
-            task = taskList{T}; if ~isfield(rCond{S}.(acqList{A}),task) || isempty(rCond{S}.(acqList{A}).(task)); continue; end
-            % if isempty(rCond{S}.(acqList{A}).(task).tr)
-                for R = 1:size(rCond{S}.(acqList{A}).(task).fPreprocList,1)
-                    rCond{S}.(acqList{A}).(task).tr(R,1) = MRIget(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},'tr');
-                    % mri = MRIread(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},1);
-                    % rCond{S}.(acqList{A}).(task).tr(R,1) = mri.tr/1000;
-                end
-            % end
-        end
-    end
-end
+% disp('Asserting runCond...')
+% % disp('getting tr from nifti headers')
+% for S = 1:length(rCond)
+%     disp(['getting tr from nifti headers (S=' num2str(S) '/' num2str(length(rCond)) ')'])
+%     for A = 1:length(acqList)
+%         if ~isfield(rCond{S},acqList{A}); continue; end
+%         for T = 1:length(taskList)
+%             task = taskList{T}; if ~isfield(rCond{S}.(acqList{A}),task) || isempty(rCond{S}.(acqList{A}).(task)); continue; end
+%             % if isempty(rCond{S}.(acqList{A}).(task).tr)
+%                 for R = 1:size(rCond{S}.(acqList{A}).(task).fPreprocList,1)
+%                     rCond{S}.(acqList{A}).(task).tr(R,1) = MRIget(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},'tr');
+%                     % mri = MRIread(rCond{S}.(acqList{A}).(task).fPreprocList{R,1},1);
+%                     % rCond{S}.(acqList{A}).(task).tr(R,1) = mri.tr/1000;
+%                 end
+%             % end
+%         end
+%     end
+% end
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -129,7 +129,7 @@ end
 
 
 
-forceThis   = 0;
+forceThis   = 1;
 verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
@@ -145,6 +145,14 @@ if 1
         for A = 1:length(acqList)
             acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
 
+
+            %%% FORCE
+            if contains(acq,'vfMRIpc')
+                forceThis = 1;
+            else
+                forceThis = 0;
+            end
+
             % %anat
             % hdMask = rCond{S}.(acq).anat.mask.head;
             % veMask = rCond{S}.(acq).anat.label.vessel;
@@ -157,7 +165,9 @@ if 1
             for T = 1:length(taskList)
                 % if S==2 && A==4 && T==3; forceThis = 1; end
                 task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+
                 [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+
                                                rCond{S}.(acq).(task).volResp.mag       = volResp;
                 if ~isempty(volRespCmplx);     rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;     end
                 if ~isempty(volRespCmplxMag1); rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1; end
@@ -196,14 +206,14 @@ if 1
                 % %resp
                 % % info.doCat = 0;
                 % % info.doRun = 1;
-                
-                
-                
             end
         end
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+return
 
 disp([cellstr(num2str((1:length(rCond))')) subList])
 disp(acqList)
