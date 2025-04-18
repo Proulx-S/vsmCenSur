@@ -170,7 +170,7 @@ end
 
 return
 
-forceThis   = 1;
+forceThis   = 0;
 verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
