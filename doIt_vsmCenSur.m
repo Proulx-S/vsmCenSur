@@ -31,6 +31,9 @@ addpath(genpath(         workDir                                 ))
 tool = 'vasomoTools'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
+tool = 'bassReg2'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
+if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
+addpath(genpath(fullfile(toolDir,tool)))
 tool = 'util'; toolURL = 'https://github.com/Proulx-S/util.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
@@ -47,6 +50,9 @@ switch envId
         %%%% afni
         src.afni = 'ml afni/24.3.00';
         system([src.afni '; 3dinfo > /dev/null'],'-echo');
+        %%%% ants
+        src.ants = 'ml ants/2.5.3';
+        system([src.ants '; antsRegistration --version > /dev/null'],'-echo');
         %%%% freesurfer
         src.fs   = 'ml freesurfer/8.0.0';
         system([src.fs   '; mri_convert > /dev/null'],'-echo');
@@ -73,32 +79,33 @@ reorderSubj = [1 3 4 5 6 7 8 2];
 disp('Loading index file...')
 index = load(dataIndexFile);
 rCond   = index.rCond; index = rmfield(index,'rCond');
-subList = index.QA.subList;
-subList = subList(reorderSubj);
+subList = index.info.subList(reorderSubj);
 rCond   = rCond(reorderSubj);
-fieldNames = fieldnames(index.QA);
-for i = 1:length(fieldNames)
-    index.QA.(fieldNames{i}) = index.QA.(fieldNames{i})(reorderSubj);
-end
+% fieldNames = fieldnames(index.QA);
+% for i = 1:length(fieldNames)
+%     index.QA.(fieldNames{i}) = index.QA.(fieldNames{i})(reorderSubj);
+% end
 disp('Subjects:')
 disp(char(subList))
 disp('---------')
-reorderAcq = [4 3 2 1];
-acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
-acqList(ismember(acqList,{'phs' 'QA'})) = []; acqList = acqList(reorderAcq);
-disp(char(acqList))
+reorderAcq = [2 4 3 1];
+acqList = index.info.acqList(reorderAcq);
+% acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
+% acqList(ismember(acqList,{'phs' 'QA'})) = []; acqList = acqList(reorderAcq);
 disp('Acquisition conditions:')
+disp(char(acqList))
 disp('---------')
 reorderTask = [3 1 2];
-taskList = {};
-for S = 1:length(rCond)
-    for A = 1:length(acqList)
-        if ~isfield(rCond{S},acqList{A}); continue; end
-        taskList = cat(1,taskList,fields(rCond{S}.(acqList{A})));
-    end
-end
-taskList = unique(taskList);
-taskList = taskList(reorderTask);
+taskList = index.info.taskList(reorderTask);
+% taskList = {};
+% for S = 1:length(rCond)
+%     for A = 1:length(acqList)
+%         if ~isfield(rCond{S},acqList{A}); continue; end
+%         taskList = cat(1,taskList,fields(rCond{S}.(acqList{A})));
+%     end
+% end
+% taskList = unique(taskList);
+% taskList = taskList(reorderTask);
 disp('Tasks:')
 disp(char(taskList))
 disp('---------')
@@ -125,8 +132,7 @@ disp('---------')
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 
-
-
+return
 
 
 forceThis   = 0;
@@ -134,71 +140,28 @@ verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %%%
 %%% NOTE: Need to figure out run order. Probably need to perform a sort according to acquisition time. More importantly, run-r in the bids filename might not always match the run index here in matlab (e.g. bids run-r might not be starting at and increasing by 1, and some runs might be excluded)
 %%%
-if 1
-    for S = 1:size(subList,1)
-        % info.sub = subList{S};
-        % acqList = fields(rCond{S}); acqList(ismember(acqList,{'phs' 'QA'})) = [];
-        for A = 1:length(acqList)
-            acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+for S = 1:size(subList,1)
+    for A = 1:length(acqList)
+        acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
 
-
-            % %anat
-            % hdMask = rCond{S}.(acq).anat.mask.head;
-            % veMask = rCond{S}.(acq).anat.label.vessel;
-
-            % taskList = fields(rCond{S}.(acq));
-            % taskList(~contains(taskList,'task_'           )) = [];
-            % taskList( ismember(taskList,'task_eyeOpenRest')) = [];
-            % taskList( ismember(taskList,'task_fixOnly'    )) = [];
-
-            for T = 1:length(taskList)
-                task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-
-                [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
-
-                                               rCond{S}.(acq).(task).volResp.mag       = volResp;
-                if ~isempty(volRespCmplx);     rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;     end
-                if ~isempty(volRespCmplxMag1); rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1; end
-
-
-                % strjoin([cellstr(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv)
-                % cellstr([char(rCond{S}.(acq).(task).volResp.mag.respCat.fStat) '+orig'])
-                % rCond{S}.(acq).(task).volResp.mag.respCat.stats.fPoly0Base_catAv
-                % rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp],' ')
-                
-
-                % strjoin([cellstr(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv)
-                % cellstr([char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.fStat) '+orig'])
-                % rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv(1,3:4)'
-                % permute(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fResp(1,1,3:4),[3 1 2])],' ')
-                
-                
-
-                %ts
-                % fList = rCond{S}.(acq).(task).fPreprocList(:,1);
-                % mList = rCond{S}.(acq).(task).fPreprocMaskList(:,1);
-                % rCond{S}.(acq).(task).volTs.f = fList;
-                % info.nDummy = rCond{S}.(acq).(task).nDummy;
-                
-                % for i = 1:length(volTs)
-                %     volTs(i).mri.nFrame     = volTs(i).nFrame;
-                %     volTs(i).mri.nFrameOrig = volTs(i).nFrameOrig;
-                %     volTs(i).tr = volTs(i).mri.tr;
-                % end
-                % % [volTs.mri.nFrame] = deal(349);
-                % % [volTs.nFrame] = deal(349);
-
-                % %dsgn
-                % dsgn = rCond{S}.(acq).(task).dsgn;
-
-                % %resp
-                % % info.doCat = 0;
-                % % info.doRun = 1;
+            if S>=4
+                forceThis   = 1;
+            else
+                forceThis   = 0;
             end
+
+            [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+            rCond{S}.(acq).(task).volResp.mag       = volResp;
+            rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;
+            rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1;
+            %                                rCond{S}.(acq).(task).volResp.mag       = volResp;
+            % if ~isempty(volRespCmplx);     rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;     end
+            % if ~isempty(volRespCmplxMag1); rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1; end
         end
     end
 end
@@ -206,6 +169,60 @@ end
 
 
 return
+
+forceThis   = 1;
+verboseThis = 1;
+%%%%%%%%%%%%%%%%%%%%%%%%
+%% Anatomical processing
+%% %%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    for A = 1:length(acqList)
+        if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
+
+        [out,avMap] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
+        QArun
+    end
+end
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+return
+
+
+forceThis   = 1;
+verboseThis = 0;
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Time-frequency analysis
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    for A = 1:length(acqList)
+        acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+            
+
+            dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
+
+            K   = [];
+            W   = [];
+            win = []; % in seconds [lenght, step]
+            skipSVD = 1;
+            skipPSD = 0;
+            
+            funPsd = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD,forceThis,verboseThis)
+        end
+    end
+end
+
+%% %%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%
+%% PC data exploration
+%%%%%%%%%%%%%%%%%%%%%%
 
 disp([cellstr(num2str((1:length(rCond))')) subList])
 disp(acqList)
@@ -421,7 +438,7 @@ cmd{end+1} = ['rsync sebp@takoyaki1:{' strjoin(...
 cmd{end+1} = ['cd ' tmpDir];
 cmd{end+1} = 'afni .';
 disp(strjoin(cmd,newline))
-
+%% %%%%%%%%%%%%%%%%%%%
 
 
 return

@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../../tools/util"
+		},
+		{
+			"path": "../../tools/bassReg2"
 		}
 	],
 	"settings": {
