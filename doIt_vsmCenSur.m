@@ -132,11 +132,11 @@ disp('---------')
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 
-return
+
 
 
 forceThis   = 0;
-verboseThis = 1;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -148,12 +148,6 @@ for S = 1:size(subList,1)
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         for T = 1:length(taskList)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-
-            if S>=4
-                forceThis   = 1;
-            else
-                forceThis   = 0;
-            end
 
             [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
             rCond{S}.(acq).(task).volResp.mag       = volResp;
@@ -168,7 +162,7 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-return
+
 
 forceThis   = 0;
 verboseThis = 0;
@@ -186,7 +180,7 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%
-return
+
 
 
 forceThis   = 1;
@@ -201,13 +195,14 @@ for S = 1:size(subList,1)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
             
 
-            dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
+            % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
-            K   = [];
+            K   = [3];
             W   = [];
-            win = []; % in seconds [lenght, step]
+            win = [30 3]; % in seconds [lenght, step]
             skipSVD = 0;
             skipPSD = 0;
+            dsgn    = rCond{S}.(acq).(task).dsgn;
             fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
             
             funPsd = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,fMask,skipSVD,skipPSD,forceThis,verboseThis)
