@@ -171,20 +171,18 @@ end
 return
 
 forceThis   = 0;
-verboseThis = 1;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
 %% %%%%%%%%%%%%%%%%%%%%%
 for S = 1:size(subList,1)
     for A = 1:length(acqList)
         if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
-
-        [out,avMap] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
-        QArun
+        if contains(acqList{A},{'bold'}); continue; end
+        % if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
+        [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
     end
 end
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -192,7 +190,7 @@ return
 
 
 forceThis   = 1;
-verboseThis = 0;
+verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -208,10 +206,11 @@ for S = 1:size(subList,1)
             K   = [];
             W   = [];
             win = []; % in seconds [lenght, step]
-            skipSVD = 1;
+            skipSVD = 0;
             skipPSD = 0;
+            fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
             
-            funPsd = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD,forceThis,verboseThis)
+            funPsd = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,fMask,skipSVD,skipPSD,forceThis,verboseThis)
         end
     end
 end
