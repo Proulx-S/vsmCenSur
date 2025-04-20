@@ -134,7 +134,6 @@ disp('---------')
 
 
 
-
 forceThis   = 0;
 verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -168,7 +167,7 @@ forceThis   = 0;
 verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
-%% %%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%
 for S = 1:size(subList,1)
     for A = 1:length(acqList)
         if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
@@ -177,9 +176,8 @@ for S = 1:size(subList,1)
         [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
     end
 end
+%% %%%%%%%%%%%%%%%%%%%%%
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
@@ -197,9 +195,9 @@ for S = 1:size(subList,1)
 
             % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
-            K   = [3];
+            K   = [3]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->time-resolved based on missing data
             W   = [];
-            win = [30 3]; % in seconds [lenght, step]
+            win = [25 1]; % in seconds [lenght, step]
             skipSVD = 0;
             skipPSD = 0;
             dsgn    = rCond{S}.(acq).(task).dsgn;
