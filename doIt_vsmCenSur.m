@@ -43,6 +43,9 @@ addpath(genpath(fullfile(toolDir,'chronux/chronux_2_12/modified')))
 tool = 'fieldtrip'; toolURL = 'https://github.com/fieldtrip/fieldtrip';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,'fieldtrip/external/freesurfer')))
+tool = 'shplot'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
+if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
+addpath(genpath(fullfile(toolDir,tool)))
 %%% neurodesk
 switch envId
     case 1
@@ -186,29 +189,106 @@ verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
 %%%%%%%%%%%%%%%%%%%%%%%%%%
-for S = 1:size(subList,1)
-    for A = 1:length(acqList)
+for S = 1%:size(subList,1)
+    for A = 1%:length(acqList)
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+        if contains(acq,{'bold'}); continue; end
         for T = 1:length(taskList)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
             
 
             % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
-            K   = [3]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->time-resolved based on missing data
+            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->time-resolved based on missing data
             W   = [];
-            win = [25 1]; % in seconds [lenght, step]
+            win = [25 0.840]; % in seconds [lenght, step]
             skipSVD = 0;
             skipPSD = 0;
             dsgn    = rCond{S}.(acq).(task).dsgn;
             fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
             
-            funPsd = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,fMask,skipSVD,skipPSD,forceThis,verboseThis)
+            rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,fMask,skipSVD,skipPSD,forceThis,verboseThis);
         end
     end
 end
-
 %% %%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%% Send example to David
+%%%%%%%%%%%%%%%%%%%%%%%%
+tmpCond = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur;
+imBase = MRIread(char(tmpCond.volResp.mag.actCat.stats.fPoly0Base_catAv)); imBase = imBase.vol;
+roi = tmpCond.volAnat.roi.vessel;
+[hF,hT,hUL] = plotUL3(imBase,roi,[100 800]);
+hUL{1}.XLim = [100 300];
+hUL{1}.YLim = [100 300];
+
+roiInd = ismember({roi.class},'artery') & [roi.id]==4;
+roiMask = roi(roiInd).mask;
+figure('WindowStyle','docked');
+fResp   = char(tmpCond.volResp.mag.respCat.stats.fResp);
+resp   = MRIread(fResp); dt = resp.tr/1000; resp   = permute(resp.vol  ,[4 1 2 3]);
+resp   = resp(  :,roiMask); % time x vox
+voxInd = [5 6 9 10];
+plot(((1:size(resp,1))-1).*dt,mean(resp(:,voxInd),2));
+grid on;
+
+%get timeseries
+volTs = permute(cat(6,tmpCond.volTs.vol),[4 5 6 7 8 1 2 3]);
+volTs = permute(volTs(:,:,:,:,:,roiMask),[1 6 3 2 4 5 7 8]); % time x vox x run
+
+
+
+ts.data = volTs;
+ts.t    = 0:tmpCond.nFrameOrig(1)-1;
+ts.t(1:(tmpCond.nFrameOrig(1)-tmpCond.nFrame(1))) = [];
+ts.t = ts.t*tmpCond.tr(1);
+ts.info = 'time x vox x run';
+ts.stimOnsetTimes    = tmpCond.dsgn.onsetList;
+ts.stimDurationTimes = tmpCond.dsgn.ondurList;
+ts.vol2vec = roiMask;
+ts.negResponseVoxInd = [5 6 9 10];
+
+tmp = resp; clear resp;
+resp.data = tmp;
+resp.t    = (0:size(resp.data,1)-1).*dt;
+resp.info = 'post-stim-onset time X vox';
+resp.vol2vec = roiMask;
+resp.negResponseVoxInd = [5 6 9 10];
+
+save(fullfile(tmpCond.dirsOrig.bidsDeriv,'acq-vfMRI_prsc-dflt','forDavid.mat'),'ts','resp');
+
+
+
+
+
+
+imagesc(roi(roiInd).mask);
+
+
+
+
+mask   = MRIread(char(tmpCond.volAnat.label.calcarineVessel.f)); mask = mask.vol;
+imResp = MRIread(char(tmpCond.volResp.mag.respCat.fResp)); trResp = imResp.tr/1000; nFrameResp = imResp.nframes; imResp = imResp.vol;
+
+[hF,hT,hUL] = plotUL2(imBase,{artRoi veiRoi ambRoi vesRoi physRoi},{'r' 'b' 'y' 'k' 'g'},[0 800]);
+
+
+S = 1;
+[hFigCat,hFigRun] = plotVessels3(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur,[],[])
+
+
+plotTs4
+plotSpecAll2
+plotVessels2
+
+plotUL2
+plotOL2
+plotAct
+plotCoh3
+
+
+%% %%%%%%%%%%%%%%%%%%%%%
 
 
 
