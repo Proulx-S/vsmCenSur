@@ -163,11 +163,11 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+return
 
 
 forceThis   = 0;
-verboseThis = 0;
+verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,15 +182,22 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%
 
 
+return
+S = 5;
+A = 1;
+task = taskList{2};
+tiling = plotUL3(rCond{S}.(acqList{A}).(task).volAnat.roi.vessel,[],[],4);
 
 
-forceThis   = 1;
-verboseThis = 1;
+
+
+forceThis   = 0;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
 %%%%%%%%%%%%%%%%%%%%%%%%%%
-for S = 1%:size(subList,1)
-    for A = 1%:length(acqList)
+for S = 1:4%size(subList,1)
+    for A = 1:length(acqList)
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         if contains(acq,{'bold'}); continue; end
         for T = 1:length(taskList)
@@ -199,7 +206,7 @@ for S = 1%:size(subList,1)
 
             % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
-            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->time-resolved based on missing data
+            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
             W   = [];
             win = [25 0.840]; % in seconds [lenght, step]
             skipSVD = 0;
@@ -213,6 +220,9 @@ for S = 1%:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%
 
+return
+
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Send example to David
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -257,36 +267,110 @@ resp.vol2vec = roiMask;
 resp.negResponseVoxInd = [5 6 9 10];
 
 save(fullfile(tmpCond.dirsOrig.bidsDeriv,'acq-vfMRI_prsc-dflt','forDavid.mat'),'ts','resp');
+%% %%%%%%%%%%%%%%%%%%%%%
+end
 
 
+%% Get ROI data
+for S = 1:4%size(subList,1)
+    disp(['extracting ROI data: ' subList{S}])
+    for A = 1:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task); continue; end
+
+            % add data to vessel roi
+            roi{S}.(acq).(task).vessel = vol2roi(rCond{S}.(acq).(task).volMt.runAv,rCond{S}.(acq).(task).volAnat.roi.vessel);
+
+            % summarize rois (vox2roi)
+            vessels = roi{S}.(acq).(task).vessel;
+            vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein')) vessels(ismember({vessels.class},'unknown'))};
+            roi{S}.(acq).(task).vessels = mergeRoi(vessels);
+        end
+    end
+end
+
+%% Plot ROIs
+for S = 1:4%size(subList,1)
+    for A = 1:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task); continue; end
+
+            % Plot individual vessel ROIs
+            tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
+            plotSpec([],roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
+
+            ttlStr = strjoin({
+                rCond{S}.(acq).(task).sub
+                rCond{S}.(acq).(task).acq
+                rCond{S}.(acq).(task).prsc
+                rCond{S}.(acq).(task).vencAcq
+            },'; ');
+            title(tiling.sub.left.hA   ,ttlStr);
 
 
+            % Plot combined vessel ROIs
+            tilingGrp = plotUL3(roi{S}.(acq).(task).vessels,[],[],4);
+            plotSpec([],roi{S}.(acq).(task).vessels,tilingGrp.sub.right.hA)
 
+            % Add title
+            ttlStr = strjoin({
+                rCond{S}.(acq).(task).sub
+                rCond{S}.(acq).(task).acq
+                rCond{S}.(acq).(task).prsc
+                rCond{S}.(acq).(task).vencAcq
+            },'; ');
+            title(tiling.sub.left.hA   ,ttlStr);
+            title(tilingGrp.sub.left.hA,ttlStr); 
+        end
+    end
+end
 
-imagesc(roi(roiInd).mask);
+%% Summarize vessel spectra
+f   = {};
+art = {};
+vei = {};
+artAv = {};
+veiAv = {};
+for S = 1:2%size(subList,1)
+    A = 1; acq  = acqList{ A};
+    T = 1; task = taskList{T};
 
+    vessels = [roi{S}.(acq).(task).vessels{:}];
+    f{S}   = squeeze(vessels(1).vec.mt.psd.f);
+    
+    art{S} = vessels(ismember({vessels.class},'artery'));
+    art{S} = squeeze(art{S}.vec.mt.psd.vec);
+    artAv{S} = mean(art{S},2);
 
+    vei{S} = vessels(ismember({vessels.class},'vein'));
+    vei{S} = squeeze(vei{S}.vec.mt.psd.vec);
+    veiAv{S} = mean(vei{S},2);
+end
+f = f{1};
+artAv = cat(2,artAv{:});
+veiAv = cat(2,veiAv{:});
+    
+figure('WindowStyle','docked');
+plot(f,artAv,':r'); hold on;
+plot(f,veiAv,':b'); hold on;
+hArt = plot(f,mean(artAv,2),'-r'); hold on;
+hVei = plot(f,mean(veiAv,2),'-b'); hold on;
 
+set(gca,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 
-mask   = MRIread(char(tmpCond.volAnat.label.calcarineVessel.f)); mask = mask.vol;
-imResp = MRIread(char(tmpCond.volResp.mag.respCat.fResp)); trResp = imResp.tr/1000; nFrameResp = imResp.nframes; imResp = imResp.vol;
+xlabel('Frequency (Hz)');
+ylabel('PSD');
+legend([hArt hVei],{'Arteries' 'Veins'});
 
-[hF,hT,hUL] = plotUL2(imBase,{artRoi veiRoi ambRoi vesRoi physRoi},{'r' 'b' 'y' 'k' 'g'},[0 800]);
-
-
-S = 1;
-[hFigCat,hFigRun] = plotVessels3(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur,[],[])
-
-
-plotTs4
-plotSpecAll2
-plotVessels2
-
-plotUL2
-plotOL2
-plotAct
-plotCoh3
-
+return
 
 %% %%%%%%%%%%%%%%%%%%%%%
 
