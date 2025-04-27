@@ -141,8 +141,8 @@ clear index
 
 
 
-forceThis   = 1;
-verboseThis = 1;
+forceThis   = inf;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Subject-by-subject and acquisition-by-acquisition QA --- AUTOMATIC STEPS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -150,38 +150,16 @@ verboseThis = 1;
 for S = 1:length(rCond)
     for A = 1:length(acqList)
         acq = acqList{A};
-        taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
+        if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         
         %%% Combine runs
-        fList     = cell(size(taskListTmp));
-        fMaskList = cell(size(taskListTmp));
-        nDummy    = cell(size(taskListTmp));
-        acqTime   = cell(size(taskListTmp));
-        taskList2 = cell(size(taskListTmp));
-        for T = 1:length(taskListTmp)
-            fList{T}     = rCond{S}.(acq).(taskListTmp{T}).fPreprocList;
-            ind = find(squeeze(all(~cellfun('isempty',rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList),1)),1,'last');
-            fMaskList{T} = rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList(:,ind);
-            nDummy{T}    = rCond{S}.(acq).(taskListTmp{T}).nFrameOrig - rCond{S}.(acq).(taskListTmp{T}).nFrame;
-            taskList2{T} = repmat(taskListTmp(T),size(fList{T}));
-            acqTime{T}   = rCond{S}.(acq).(taskListTmp{T}).acqTime;
-        end
-        fList     = cat(1,fList{:}    );
-        fMaskList = cat(1,fMaskList{:});
-        nDummy    = cat(1,nDummy{:});
-        taskList2 = cat(1,taskList2{:});
-        acqTime   = cat(1,acqTime{:});
-        [acqTime,b] = sort(acqTime);
-        fList     = fList(b);
-        fMaskList = fMaskList(b);
-        nDummy    = nDummy(b);
-        taskList2 = taskList2(b);
+        [rCond{S}.(acq).QA.fList,rCond{S}.(acq).QA.fMaskList,rCond{S}.(acq).QA.nDummy,rCond{S}.(acq).QA.taskList,rCond{S}.(acq).QA.acqTime] = combineRunsAcrossTasks(rCond{S}.(acq));
 
         %%% Get correlation matrix
-        [rCond{S}.(acq).QA.fXCorr,hXCorr] = xCorrQA(fList,fMaskList,nDummy,[],[],forceThis,0);
+        [rCond{S}.(acq).QA.fXCorr,hXCorr] = xCorrQA(rCond{S}.(acq).QA.fList,rCond{S}.(acq).QA.fMaskList,rCond{S}.(acq).QA.nDummy,[],[],forceThis,verboseThis);
     end
 end
-
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
@@ -189,71 +167,76 @@ return
 
 
 
-forceThis   = 1;
+forceThis   = inf;
 verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Subject-by-subject and acquisition-by-acquisition QA --- MANUAL STEPS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Exclude frames and runs with bad spatial correspondence
-rCondExcl = rCond;
-for S = 1:length(rCond)
+% rCondExcl = rCond;
+for S = 8:length(rCond)
     for A = 1:length(acqList)
         acq = acqList{A};
+        if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
         
-        %%% Combine runs
-        fList     = cell(size(taskListTmp));
-        fMaskList = cell(size(taskListTmp));
-        nDummy    = cell(size(taskListTmp));
-        acqTime   = cell(size(taskListTmp));
-        taskList2 = cell(size(taskListTmp));
-        for T = 1:length(taskListTmp)
-            fList{T}     = rCond{S}.(acq).(taskListTmp{T}).fPreprocList;
-            ind = find(squeeze(all(~cellfun('isempty',rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList),1)),1,'last');
-            fMaskList{T} = rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList(:,ind);
-            nDummy{T}    = rCond{S}.(acq).(taskListTmp{T}).nFrameOrig - rCond{S}.(acq).(taskListTmp{T}).nFrame;
-            taskList2{T} = repmat(taskListTmp(T),size(fList{T}));
-            acqTime{T}   = rCond{S}.(acq).(taskListTmp{T}).acqTime;
-        end
-        fList     = cat(1,fList{:}    );
-        fMaskList = cat(1,fMaskList{:});
-        nDummy    = cat(1,nDummy{:});
-        taskList2 = cat(1,taskList2{:});
-        acqTime   = cat(1,acqTime{:});
-        [acqTime,b] = sort(acqTime);
-        fList     = fList(b);
-        fMaskList = fMaskList(b);
-        nDummy    = nDummy(b);
-        taskList2 = taskList2(b);
+        % %%% Combine runs
+        % fList     = cell(size(taskListTmp));
+        % fMaskList = cell(size(taskListTmp));
+        % nDummy    = cell(size(taskListTmp));
+        % acqTime   = cell(size(taskListTmp));
+        % taskList2 = cell(size(taskListTmp));
+        % for T = 1:length(taskListTmp)
+        %     fList{T}     = rCond{S}.(acq).(taskListTmp{T}).fPreprocList(:,1);
+        %     ind = find(squeeze(all(~cellfun('isempty',rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList),1)),1,'last');
+        %     fMaskList{T} = rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList(:,ind);
+        %     nDummy{T}    = rCond{S}.(acq).(taskListTmp{T}).nFrameOrig - rCond{S}.(acq).(taskListTmp{T}).nFrame;
+        %     taskList2{T} = repmat(taskListTmp(T),size(fList{T}));
+        %     acqTime{T}   = rCond{S}.(acq).(taskListTmp{T}).acqTime;
+        % end
+        % fList     = cat(1,fList{:}    );
+        % fMaskList = cat(1,fMaskList{:});
+        % nDummy    = cat(1,nDummy{:});
+        % taskList2 = cat(1,taskList2{:});
+        % acqTime   = cat(1,acqTime{:});
+        % [acqTime,b] = sort(acqTime);
+        % fList     = fList(b);
+        % fMaskList = fMaskList(b);
+        % nDummy    = nDummy(b);
+        % taskList2 = taskList2(b);
 
         %%%% Intereactively define frame/run grouping
         [kI,k,hFig,fClust,mainClust] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
 
         %%%% Add main cluster id to rCond
+        taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
         for T = 1:length(taskListTmp)
-            rCond{S}.(acq).(taskListTmp{T}).clustId = mainClust(ismember(taskList2,taskListTmp{T}));
+            rCond{S}.(acq).(taskListTmp{T}).clustId = mainClust(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
         end
+        
         %%%% Exclude runs that are not in the main cluster
-        fListExclude = fList(mainClust~=mode(mainClust));
+        rCond{S}.(acq).QA.fListExclude = rCond{S}.(acq).QA.fList(mainClust~=mode(mainClust));
+        rCondExcl{S,1}.(acq).QA = rCond{S}.(acq).QA;
         for T = 1:length(taskListTmp)
-            rCondExcl{S}.(acq).(taskListTmp{T}) = rCond{S}.(acq).(taskListTmp{T});
-            indExcl = ismember(rCondExcl{S}.(acq).(taskListTmp{T}).fPreprocList,fListExclude);
+            rCondExcl{S,1}.(acq).(taskListTmp{T}) = rCond{S}.(acq).(taskListTmp{T});
+            indExcl = ismember(rCondExcl{S,1}.(acq).(taskListTmp{T}).fPreprocList,rCond{S}.(acq).QA.fListExclude);
             allFields = {'ses' 'fList' 'fPreprocList' 'fPreprocMaskList' 'fTransList' 'fTransCatList' 'fOrigList' 'bidsList' 'wd' 'date' 'acqTime' 'nFrame' 'nFrameOrig' 'tr' 'trExc' 'nDummy' 'vSize' 'bhvr' 'clustId'};
-            R = size(rCondExcl{S}.(acq).(taskListTmp{T}).fPreprocList,1);
+            R = size(rCondExcl{S,1}.(acq).(taskListTmp{T}).fPreprocList,1);
             for F = 1:length(allFields)
-                if size(rCondExcl{S}.(acq).(taskListTmp{T}).(allFields{F}),1)~=R
-                    rCondExcl{S}.(acq).(taskListTmp{T}).(allFields{F})          = [];
+                if size(rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F}),1)~=R
+                    rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F})          = [];
                 else
-                    rCondExcl{S}.(acq).(taskListTmp{T}).(allFields{F})(indExcl) = [];
+                    rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F})(indExcl) = [];
                 end
             end
         end
     end
 end
 QA.subList = subListU;
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-save tmpQA QA acqSet subListU
+% save tmpQA QA acqSet subListU
 return
 
 %% 
