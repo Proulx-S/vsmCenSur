@@ -164,8 +164,8 @@ end
 
 forceThis   = 0;
 verboseThis = 0;
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Subject-by-subject and acquisition-by-acquisition QA --- MANUAL STEPS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Subject-by-subject and acquisition-by-acquisition QA --- MANUAL STEPS and EXCLUSIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Exclude frames and runs with bad spatial correspondence
 for S = 1:length(rCond)
@@ -202,8 +202,9 @@ for S = 1:length(rCond)
     end
 end
 % QA.subList = subListU;
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+rCondOrig = rCond;
+rCond = rCondExcl; clear rCondExcl
 
 % for S = 1:length(rCond)
 %     for A = 1:length(acqList)
