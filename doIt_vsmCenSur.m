@@ -229,7 +229,7 @@ verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
 %%%%%%%%%%%%%%%%%%%%%%%%
-for A = 1:length(acqList)
+for A = 1%:length(acqList)
     for S = 1:size(subList,1)
         if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
         if contains(acqList{A},{'bold'}); continue; end
