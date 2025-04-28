@@ -139,9 +139,7 @@ clear index
 
 
 
-
-
-forceThis   = inf;
+forceThis   = 0;
 verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Subject-by-subject and acquisition-by-acquisition QA --- AUTOMATIC STEPS
@@ -163,47 +161,18 @@ end
 
 
 
-return
 
-
-
-forceThis   = inf;
-verboseThis = 1;
+forceThis   = 0;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Subject-by-subject and acquisition-by-acquisition QA --- MANUAL STEPS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Exclude frames and runs with bad spatial correspondence
-% rCondExcl = rCond;
-for S = 8:length(rCond)
+for S = 1:length(rCond)
     for A = 1:length(acqList)
         acq = acqList{A};
         if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
-        
-        % %%% Combine runs
-        % fList     = cell(size(taskListTmp));
-        % fMaskList = cell(size(taskListTmp));
-        % nDummy    = cell(size(taskListTmp));
-        % acqTime   = cell(size(taskListTmp));
-        % taskList2 = cell(size(taskListTmp));
-        % for T = 1:length(taskListTmp)
-        %     fList{T}     = rCond{S}.(acq).(taskListTmp{T}).fPreprocList(:,1);
-        %     ind = find(squeeze(all(~cellfun('isempty',rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList),1)),1,'last');
-        %     fMaskList{T} = rCond{S}.(acq).(taskListTmp{T}).fPreprocMaskList(:,ind);
-        %     nDummy{T}    = rCond{S}.(acq).(taskListTmp{T}).nFrameOrig - rCond{S}.(acq).(taskListTmp{T}).nFrame;
-        %     taskList2{T} = repmat(taskListTmp(T),size(fList{T}));
-        %     acqTime{T}   = rCond{S}.(acq).(taskListTmp{T}).acqTime;
-        % end
-        % fList     = cat(1,fList{:}    );
-        % fMaskList = cat(1,fMaskList{:});
-        % nDummy    = cat(1,nDummy{:});
-        % taskList2 = cat(1,taskList2{:});
-        % acqTime   = cat(1,acqTime{:});
-        % [acqTime,b] = sort(acqTime);
-        % fList     = fList(b);
-        % fMaskList = fMaskList(b);
-        % nDummy    = nDummy(b);
-        % taskList2 = taskList2(b);
 
         %%%% Intereactively define frame/run grouping
         [kI,k,hFig,fClust,mainClust] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
@@ -226,124 +195,48 @@ for S = 8:length(rCond)
                 if size(rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F}),1)~=R
                     rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F})          = [];
                 else
-                    rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F})(indExcl) = [];
+                    rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F})(indExcl,:,:) = [];
                 end
             end
         end
     end
 end
-QA.subList = subListU;
+% QA.subList = subListU;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% save tmpQA QA acqSet subListU
-return
-
-%% 
-close all
-% clear all
-forceThis = 1;
-load tmpQA
-
-
-S=2
-A=1
-hFig = open(QA.fig{S}{A}.fAfter)
-R = 2
-hFig.UserData.fileNames{R}
-
-for S = 2%1:length(QA.fig)
-    for A = 1%1:length(QA.fig{S})\
-        for R = 1:length(QA.fig{S}{A}.hAfter.UserData.fileNames)
-            f = QA.fig{S}{A}.hAfter.UserData.fileNames{R};
-            if ~exist(f,'file'); continue; end
-            [~,b] = fileparts(f);
-            if ~contains(b,'_dendo'); continue; end
-            hFig = open(f);
-            hFig.UserData.fileNames{R}
-        end
-    end
-end
-
-
-for S = 2%1:length(QA.fig)
-    for A = 1%1:length(QA.fig{S})
-        fig = QA.fig{S}{A};
-        QA.dendoFig{S,1}{1,A}.fAfter = replace(fig.fAfter,'.fig','_dendo.fig');
-        if contains(fig.fAfter,'acq-bold'); continue; end
-
-
-        if forceThis || ~exist(QA.dendoFig{S,1}{1,A}.fAfter)
-            %%% Define clustering
-            [kI,k,hFig] = QAdendogram(fig.fAfter);
-            saveas(hFig,QA.dendoFig{S,1}{1,A}.fAfter);
-            close(hFig);
-        end
-    end
-end
+% for S = 1:length(rCond)
+%     for A = 1:length(acqList)
+%         acq = acqList{A};
+%         if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+%         sub = fields(rCond{S}.(acq)); sub = sub(contains(sub,'task_')); sub = sub{1}; sub = rCond{S}.(acq).(sub).sub;
+%         disp([sub ' ' acq])
+%         [fList    ,fMaskList    ,~,taskList    ,acqTime    ] = combineRunsAcrossTasks(rCond{S}.(acq)    );
+%         [fListExcl,fMaskListExcl,~,taskListExcl,acqTimeExcl] = combineRunsAcrossTasks(rCondExcl{S}.(acq));
+%         fList
+%         fListExcl
+%     end
+% end
 
 
 
-%% Censore bad timepoints
-%%% Plot QA correlation matrix
-fig = QA.fig{end}{2};
-fig.hAfter = open(fig.fAfter);
-fig.hAfter.UserData.fileNames
-tmp = strsplit(fig.hAfter.UserData.fileNames{1},'_'); tmp{contains(tmp,'run-')} = 'run-cat'; tmp = strjoin(tmp,'_')
-
-
-
-%%% Get correlation matrix
-ax = findobj(fig.hAfter.Children,'Type','Axes'    );
-cb = findobj(fig.hAfter.Children,'Type','ColorBar');
-im = findobj(ax,'Type','Image');
-rho = im.CData;
-
-%%% Explore clusters from QA correlation matrix
-Z = linkage(squareform(1-rho), 'average'); % Convert correlation to distance
-figure('WindowStyle','docked');
-[H, T, perm] = dendrogram(Z, 0, 'Reorder',1:length(rho),'ColorThreshold',0.2,'Orientation','right');
-ax = gca; ax.YDir = 'reverse';
-ax.YTick = [];
-
-k = 4;
-clusters_h = cluster(Z, 'maxclust', k); % Adjust number of clusters as needed
-
-
-
-%%% Plot all clusters
-% figure(fig.hAfter);
-yyaxis right
-plot(clusters_h,'k','LineWidth',2);
-ylim([0 k+1])
-ax.PlotBoxAspectRatio = [1 1 1];
-cb.Position(1) = cb.Position(1) + 0.05;
-
-%%% Plot largest cluster
-[a,b,c] = unique(clusters_h);
-cLarge = mode(c)==c;
-yyaxis left; hold on
-plot(cLarge.*size(rho,1).*0.05 + 1,'-m');
-
-cIn = false(size(rho,1),1);
-cIn = cIn|cLarge;
-cLarge = mode(c(~cIn))==c;
-plot(size(rho,1) - cLarge.*size(rho,1).*0.05,'-m');
-
-% %%% Choose clusters to keep
-% [a,b,c] = unique(clusters_h);
-% cKeep = mode(c)==c;
-% im.CData = rho;
-% im.CData(:,~cKeep) = nan;
-
-% cKeep = cKeep | mode(c(~cKeep))==c;
-% im.CData = rho;
-% im.CData(:,~cKeep) = nan;
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 return
 
-
+forceThis   = 1;
+verboseThis = 1;
+%%%%%%%%%%%%%%%%%%%%%%%%
+%% Anatomical processing
+%%%%%%%%%%%%%%%%%%%%%%%%
+for A = 1:length(acqList)
+    for S = 1:size(subList,1)
+        if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
+        if contains(acqList{A},{'bold'}); continue; end
+        % if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
+        [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
+    end
+end
+%% %%%%%%%%%%%%%%%%%%%%%
 
 
 forceThis   = 0;
@@ -371,24 +264,6 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-return
-
-
-forceThis   = 1;
-verboseThis = 1;
-%%%%%%%%%%%%%%%%%%%%%%%%
-%% Anatomical processing
-%%%%%%%%%%%%%%%%%%%%%%%%
-for A = 1:length(acqList)
-    for S = 1:size(subList,1)
-        if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
-        if contains(acqList{A},{'bold'}); continue; end
-        % if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
-        [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
-    end
-end
-%% %%%%%%%%%%%%%%%%%%%%%
 
 
 return
