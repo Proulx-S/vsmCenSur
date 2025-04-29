@@ -206,29 +206,15 @@ end
 rCondOrig = rCond;
 rCond = rCondExcl; clear rCondExcl
 
-% for S = 1:length(rCond)
-%     for A = 1:length(acqList)
-%         acq = acqList{A};
-%         if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
-%         sub = fields(rCond{S}.(acq)); sub = sub(contains(sub,'task_')); sub = sub{1}; sub = rCond{S}.(acq).(sub).sub;
-%         disp([sub ' ' acq])
-%         [fList    ,fMaskList    ,~,taskList    ,acqTime    ] = combineRunsAcrossTasks(rCond{S}.(acq)    );
-%         [fListExcl,fMaskListExcl,~,taskListExcl,acqTimeExcl] = combineRunsAcrossTasks(rCondExcl{S}.(acq));
-%         fList
-%         fListExcl
-%     end
-% end
 
 
 
-
-return
-
-forceThis   = 1;
-verboseThis = 1;
+forceThis   = 0;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %% Anatomical processing
 %%%%%%%%%%%%%%%%%%%%%%%%
+
 for A = 1%:length(acqList)
     for S = 1:size(subList,1)
         if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
@@ -240,8 +226,10 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%
 
 
-forceThis   = 0;
-verboseThis = 0;
+
+
+forceThis   = 1;
+verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
