@@ -278,39 +278,6 @@ end
 
 
 
-
-
-forceThis   = 1;
-verboseThis = 1;
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Time-frequency analysis
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-for S = 1:size(subList,1)
-    for A = 1%:length(acqList)
-        acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
-        if contains(acq,{'bold'}); continue; end
-        for T = 1:length(taskList)
-            task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-            
-
-            % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
-
-            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
-            W   = [];
-            win = [25 0.840]; % in seconds [lenght, step]
-            skipSVD = 0;
-            skipPSD = 0;
-            dsgn    = rCond{S}.(acq).(task).dsgn;
-            fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
-            
-            rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,fMask,skipSVD,skipPSD,forceThis,verboseThis);
-        end
-    end
-end
-%% %%%%%%%%%%%%%%%%%%%%%%%
-
-
-
 %%%%%%%%%%%%%%%
 %% Get ROI data
 %%%%%%%%%%%%%%%
@@ -367,18 +334,18 @@ for S = 1:size(subList,1)
             % modify roi
             roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
 
-            % add mt to vessel roi
-            roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
+            % % add mt to vessel roi
+            % roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
 
-            % summarize rois (vox2roi)
-            vessels = roi{S}.(acq).(task).vessel;
-            vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
-            roi{S}.(acq).(task).vessels = mergeRoi(vessels);
+            % % summarize rois (vox2roi)
+            % vessels = roi{S}.(acq).(task).vessel;
+            % vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
+            % roi{S}.(acq).(task).vessels = mergeRoi(vessels);
 
 
             % add manual annotations
             switch acq
-                case 'vfMRIinflow'
+                case 'vfMRI_dflt_none'
                     switch task
                         case 'task_50sPrd5sDur'
                             switch S
@@ -438,11 +405,22 @@ for S = 1:size(subList,1)
                                     artBlb = [];
                                     veiSig = [];
                                     veiBlb = [];
-    
                             end
                         otherwise
+                            artSig = [];
+                            artCS  = [];
+                            artLR  = [];
+                            artBlb = [];
+                            veiSig = [];
+                            veiBlb = [];
                     end
                 otherwise
+                    artSig = [];
+                    artCS  = [];
+                    artLR  = [];
+                    artBlb = [];
+                    veiSig = [];
+                    veiBlb = [];
             end
 
             %%% insert manual annotations
@@ -485,6 +463,40 @@ end
 
 
 
+forceThis   = 1;
+verboseThis = 1;
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Time-frequency analysis
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    for A = 1%:length(acqList)
+        acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+        if contains(acq,{'bold'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+            
+
+            % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
+
+            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
+            W   = [];
+            win = [25 0.840]; % in seconds [lenght, step]
+            skipSVD = 1;
+            skipPSD = 0;
+            dsgn    = rCond{S}.(acq).(task).dsgn;
+            % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
+            mask    = any(cat(4,roi{S}.(acq).(task).vessel.cropMask),4);
+            
+            rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD,forceThis,verboseThis);
+        end
+    end
+end
+%% %%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
 save tmp -v7.3
 else
     load tmp
@@ -493,34 +505,6 @@ end
 
 
 return
-
-
-% %% Flag vessels significance
-% for S = 1:size(roi,1)
-%     if isempty(roi{S}); continue; end
-%     for A = 1:length(acqList)
-%         acq  = acqList{A};
-%         if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)); continue; end
-%         for T = 1:length(taskList)
-%             task = taskList{T};
-%             if ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)); continue; end
-            
-%             roi{S}.(acq).(task).vesselSig = false([size(roi{S}.(acq).(task).vessel,1) size(roi{S}.(acq).(task).vessel(1).poly,2)]);
-%             for R = 1:size(roi{S}.(acq).(task).vessel,1)
-%                 for Rmod = 1:size(roi{S}.(acq).(task).vessel(R).poly,2)
-%                     pVal = roi{S}.(acq).(task).vessel(R).im.actP.im(roi{S}.(acq).(task).vessel(R).polyMask{Rmod});
-%                     roi{S}.(acq).(task).vesselSig(R,Rmod) = any(mafdr(pVal,'BHFDR',true)<0.05);
-%                 end
-%             end
-%             % % remove non-significant vessels only for the 5sDur task
-%             % % whether based on orignal or dilate1 roi (1 roi gains and 1 looses significance)
-%             % if isfield(roi{S}.(acq),'task_50sPrd5sDur')
-%             %     ind = roi{S}.(acq).task_50sPrd5sDur.vesselSig(:,3);
-%             %     roi{S}.(acq).task_50sPrd5sDur.vessel(~ind,:) = [];
-%             % end
-%         end
-%     end
-% end
 
 
 
@@ -546,7 +530,7 @@ for S = 1:size(subList,1)
             % Plot individual vessel ROIs
             tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
             [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-            plotResp(rCond{S}.(acq).(task),{'resp_negPos'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
+            roi{S}.(acq).(task).vessel = plotResp(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
             % plotSpec([],{'psd' 'psdPS'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             
             
@@ -584,16 +568,21 @@ for S = 1:size(subList,1)
         end
     end
 end
+
+
+save tmpRoi roi -v7.3
+
+
 return
 
-S=1;
+S=8; A=1; T=1;
 threshOL(hIO{S}{A}{T},'on');
 threshOL(hIO{S}{A}{T},'off');
 threshOL(hIO{S}{A}{T},'actQ_original',0);
-threshOL(hIO{S}{A}{T},'actQ_dilate1',1);
+threshOL(hIO{S}{A}{T},'actQ_dilate1',0);
 threshOL(hIO{S}{A}{T},'actQ_dilate1p5',0);
 threshOL(hIO{S}{A}{T},'actQ_dilate2',0);
-threshOL(hIO{S}{A}{T},'actQ_crop',0);
+threshOL(hIO{S}{A}{T},'actQ_crop',1);
 
 adjPoly(hIO{S}{A}{T},'on');
 adjPoly(hIO{S}{A}{T},'original','k',-1);
@@ -603,13 +592,75 @@ adjPoly(hIO{S}{A}{T},'dilate2','w',1);
 
 
 
-threshOL(hIO{S}{1}{1},'actQ_dilate1',0.5);
+%% Summarize vessel responses --- resp_dilate1_actQ_actSgn --- n=vessels
+f   = {};
+art = {};
+vei = {};
+artAv = {};
+veiAv = {};
 
-S=1;
-adjAlpha(hIO{S}{1}{1},'act_imQ',1);
-adjAlpha(hIO{S}{1}{1},'act_imQ',0);
-adjAlpha(hIO{S}{1}{1},'act_imQ',0.5);
-adjAlpha(hIO{S}{1}{1},'off');
+fPS   = {};
+artPS = {};
+veiPS = {};
+artAvPS = {};
+veiAvPS = {};
+
+for S = 1:size(subList,1)
+    A = 1; acq  = acqList{ A};
+    T = 1; task = taskList{T};
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+
+    vessel = roi{S}.(acq).(task).vessel;
+    {roi{S}.(acq).(task).vessel.class}
+    {roi{S}.(acq).(task).vessel.anot_actType}
+
+    f{S}   = squeeze(vessels(1).vec.mt.psd.f);
+    art{S} = vessels(ismember({vessels.class},'artery')); % mean(art{S}.vec.mt.psdTrialGram.t(:,:,:,:,:,:,end) - art{S}.vec.mt.psdTrialGram.param.dsgn.onsetList,2)
+    art{S} = squeeze(art{S}.vec.mt.psd.vec);
+    artAv{S} = mean(art{S},2);
+
+    vei{S} = vessels(ismember({vessels.class},'vein'));
+    vei{S} = squeeze(vei{S}.vec.mt.psd.vec);
+    veiAv{S} = mean(vei{S},2);
+    
+    fPS{S}   = squeeze(vessels(1).vec.mt.psdTrialGram.f);
+    artPS{S} = vessels(ismember({vessels.class},'artery')); % mean(art{S}.vec.mt.psdTrialGram.t(:,:,:,:,:,:,end) - art{S}.vec.mt.psdTrialGram.param.dsgn.onsetList,2)
+    artPS{S} = squeeze(artPS{S}.vec.mt.psdTrialGram.vec(:,:,:,:,:,:,end));
+    artAvPS{S} = mean(artPS{S},2);
+
+    veiPS{S} = vessels(ismember({vessels.class},'vein'));
+    veiPS{S} = squeeze(veiPS{S}.vec.mt.psdTrialGram.vec(:,:,:,:,:,:,end));
+    veiAvPS{S} = mean(veiPS{S},2);
+end
+f = f{1};
+artAv = cat(2,artAv{:});
+veiAv = cat(2,veiAv{:});
+fPS = fPS{1};
+artAvPS = cat(2,artAvPS{:});
+veiAvPS = cat(2,veiAvPS{:});
+
+fSpecSmr = figure('WindowStyle','docked');
+% plot(f,artAv,':r'); hold on;
+% plot(f,veiAv,':b'); hold on;
+hArt = plot(f,mean(artAv,2),'--r'); hold on;
+hVei = plot(f,mean(veiAv,2),'--b'); hold on;
+hArtPS = shplot(fPS,mean(artAvPS,2),std(artAvPS,[],2)./sqrt(size(artAvPS,2))); hold on
+hVeiPS = shplot(fPS,mean(veiAvPS,2),std(veiAvPS,[],2)./sqrt(size(veiAvPS,2)));
+delete(hVeiPS.upper); delete(hVeiPS.lower); hVeiPS.line.Color = 'b'; hVeiPS.patch.FaceColor = 'b'; hVeiPS.patch.FaceAlpha = 0.05;
+delete(hArtPS.upper); delete(hArtPS.lower); hArtPS.line.Color = 'r'; hArtPS.patch.FaceColor = 'r'; hArtPS.patch.FaceAlpha = 0.05;
+
+set(gca,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
+
+xlabel('Frequency (Hz)');
+ylabel('PSD');
+legend([hArt hVei hArtPS.line hVeiPS.line],{'Arteries' 'Veins' 'Arteries (19s to 44s post-stim onset)' 'Veins (19s to 44s post-stim onset)'});
+
+
+[acq '__' task]
+fFig = fullfile(rCond{S}.(acqList{A}).(taskList{T}).dirs.bidsDeriv,'..','..',[acq '__' task]);
+saveas(fSpecSmr,[fFig 'smrSpectra.fig']);
+saveas(fSpecSmr,[fFig 'smrSpectra.jpg']);
+
             
 
 %% Summarize vessel spectra
