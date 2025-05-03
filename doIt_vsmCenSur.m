@@ -46,6 +46,12 @@ addpath(genpath(fullfile(toolDir,'fieldtrip/external/freesurfer')))
 tool = 'shplot'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
 if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 addpath(genpath(fullfile(toolDir,tool)))
+tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
+if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
+addpath(genpath(fullfile(toolDir,tool)))
+
+
+
 %%% neurodesk
 switch envId
     case 1
@@ -73,7 +79,7 @@ end
 %% %%%%%%%%%%%%%%%%%%
 
 
-if 0
+if 1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load preprocessed data
@@ -169,6 +175,7 @@ verboseThis = 0;
 %% Subject-by-subject and acquisition-by-acquisition QA --- MANUAL STEPS and EXCLUSIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Exclude frames and runs with bad spatial correspondence
+% rCond = rCondOrig;
 for S = 1:length(rCond)
     for A = 1:length(acqList)
         acq = acqList{A};
@@ -176,21 +183,34 @@ for S = 1:length(rCond)
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
 
         %%%% Intereactively define frame/run grouping
-        [kI,k,hFig,fClust,mainClust] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
+        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
 
-        %%%% Add main cluster id to rCond
+        %%%% Create new censor file based on clustering
+        fCnsr_mainClust = replace(fClustId,'ClstIdx.1D',''); [fCnsr_mainClust,b,~] = fileparts(fCnsr_mainClust); fCnsr_mainClust = fullfile(fCnsr_mainClust,strcat('censorMainClst_',b,'.csv'));
+        fCnsr           = replace(fCnsr_mainClust,'censorMainClst_','censor_');
+        for R = 1:length(fClustId)
+            clustId            = readmatrix(fClustId{R},'Filetype','text')';
+            cnsrMainClust      = readmatrix(fCnsr{R} ,'Filetype','text');
+            cnsrMainClust(:,2) = clustId==mainClustId(R);
+            writematrix(cnsrMainClust, fCnsr_mainClust{R}, 'Delimiter', ',');
+        end
+        
+        %%%% Add fClust, fClustCnsr and mainClust id things to rCond
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
         for T = 1:length(taskListTmp)
-            rCond{S}.(acq).(taskListTmp{T}).clustId = mainClust(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
+            rCond{S}.(acq).(taskListTmp{T}).fClustId = fClustId(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
+            rCond{S}.(acq).(taskListTmp{T}).mainClustId = mainClustId(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
+            rCond{S}.(acq).(taskListTmp{T}).fCnsr = fCnsr(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
+            rCond{S}.(acq).(taskListTmp{T}).fCnsr_mainClust = fCnsr_mainClust(ismember(rCond{S}.(acq).QA.taskList,taskListTmp{T}));
         end
         
         %%%% Exclude runs that are not in the main cluster
-        rCond{S}.(acq).QA.fListExclude = rCond{S}.(acq).QA.fList(mainClust~=mode(mainClust));
+        rCond{S}.(acq).QA.fListExclude = rCond{S}.(acq).QA.fList(mainClustId~=mode(mainClustId));
         rCondExcl{S,1}.(acq).QA = rCond{S}.(acq).QA;
         for T = 1:length(taskListTmp)
             rCondExcl{S,1}.(acq).(taskListTmp{T}) = rCond{S}.(acq).(taskListTmp{T});
             indExcl = ismember(rCondExcl{S,1}.(acq).(taskListTmp{T}).fPreprocList,rCond{S}.(acq).QA.fListExclude);
-            allFields = {'ses' 'fList' 'fPreprocList' 'fPreprocMaskList' 'fTransList' 'fTransCatList' 'fOrigList' 'bidsList' 'wd' 'date' 'acqTime' 'nFrame' 'nFrameOrig' 'tr' 'trExc' 'nDummy' 'vSize' 'bhvr' 'clustId'};
+            allFields = {'ses' 'fList' 'fPreprocList' 'fPreprocMaskList' 'fTransList' 'fTransCatList' 'fOrigList' 'bidsList' 'wd' 'date' 'acqTime' 'nFrame' 'nFrameOrig' 'tr' 'trExc' 'nDummy' 'vSize' 'bhvr' 'fClustId' 'mainClustId' 'fCnsr' 'fCnsr_mainClust'};
             R = size(rCondExcl{S,1}.(acq).(taskListTmp{T}).fPreprocList,1);
             for F = 1:length(allFields)
                 if size(rCondExcl{S,1}.(acq).(taskListTmp{T}).(allFields{F}),1)~=R
@@ -233,8 +253,8 @@ end
 
 
 
-forceThis   = 0;
-verboseThis = 0;
+forceThis   = 1;
+verboseThis = 1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -251,14 +271,10 @@ for S = 1:size(subList,1)
             rCond{S}.(acq).(task).volResp.mag       = volResp;
             rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;
             rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1;
-            %                                rCond{S}.(acq).(task).volResp.mag       = volResp;
-            % if ~isempty(volRespCmplx);     rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;     end
-            % if ~isempty(volRespCmplxMag1); rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1; end
         end
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 
 
@@ -295,17 +311,9 @@ end
 
 
 
-    save tmp -v7.3
-else
-    load tmp
-end
-
-
-
-
-
-
+%%%%%%%%%%%%%%%
 %% Get ROI data
+%%%%%%%%%%%%%%%
 roi = cell(size(subList));
 for S = 1:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
@@ -332,6 +340,8 @@ for S = 1:size(subList,1)
                 'actP'
                 'actQ'
                 };
+            fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj); coefAdjFlag = 1;
+            if isempty(fCondCoef); fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef); coefAdjFlag = 0; end
             im = {
                 label.fBase
                 label.fBaseList{contains(b,'vesselness.nii')}
@@ -339,18 +349,23 @@ for S = 1:size(subList,1)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_pVal)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_qVal)
-                char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj)
+                char(fCondCoef)
                 char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF)
                 char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_pVal)
                 char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal)
                 };
             cropSz = 10;
             roi{S}.(acq).(task).vessel = getVesselRoi2(label,imField,im,cropSz);
+            [roi{S}.(acq).(task).vessel.coefAdjFlag] = deal(coefAdjFlag);
 
-            roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate2'});
+            % add number of runs
+            [roi{S}.(acq).(task).vessel.R] = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
+
+            % modify roi
+            roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
 
             % add mt to vessel roi
-            roi{S}.(acq).(task).vessel = volPsd2roi( rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
+            roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
 
             % summarize rois (vox2roi)
             vessels = roi{S}.(acq).(task).vessel;
@@ -359,60 +374,89 @@ for S = 1:size(subList,1)
         end
     end
 end
+%% %%%%%%%%%%%%
 
 
-%% Remove non-significant vessels (only for the 5sDur task)
-for S = 1:size(roi,1)
-    if isempty(roi{S}); continue; end
-    for A = 1:length(acqList)
-        acq  = acqList{A};
-        if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)); continue; end
-        for T = 1:length(taskList)
-            task = taskList{T};
-            if ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)); continue; end
-            
-            roi{S}.(acq).(task).vesselSig = false([size(roi{S}.(acq).(task).vessel,1) size(roi{S}.(acq).(task).vessel(1).poly,2)]);
-            for R = 1:size(roi{S}.(acq).(task).vessel,1)
-                for Rmod = 1:size(roi{S}.(acq).(task).vessel(R).poly,2)
-                    pVal = roi{S}.(acq).(task).vessel(R).im.actP.im(roi{S}.(acq).(task).vessel(R).polyMask{Rmod});
-                    roi{S}.(acq).(task).vesselSig(R,Rmod) = any(mafdr(pVal,'BHFDR',true)<0.05);
-                end
-            end
-            % remove non-significant vessels only for the 5sDur task
-            % whether based on orignal or dilate1 roi (1 roi gains and 1 looses significance)
-            if isfield(roi{S}.(acq),'task_50sPrd5sDur')
-                ind = roi{S}.(acq).task_50sPrd5sDur.vesselSig(:,3);
-                roi{S}.(acq).task_50sPrd5sDur.vessel(~ind,:) = [];
-            end
-        end
-    end
+
+save tmp -v7.3
+else
+    load tmp
 end
+
+
 
 return
 
+
+% %% Flag vessels significance
+% for S = 1:size(roi,1)
+%     if isempty(roi{S}); continue; end
+%     for A = 1:length(acqList)
+%         acq  = acqList{A};
+%         if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)); continue; end
+%         for T = 1:length(taskList)
+%             task = taskList{T};
+%             if ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)); continue; end
+            
+%             roi{S}.(acq).(task).vesselSig = false([size(roi{S}.(acq).(task).vessel,1) size(roi{S}.(acq).(task).vessel(1).poly,2)]);
+%             for R = 1:size(roi{S}.(acq).(task).vessel,1)
+%                 for Rmod = 1:size(roi{S}.(acq).(task).vessel(R).poly,2)
+%                     pVal = roi{S}.(acq).(task).vessel(R).im.actP.im(roi{S}.(acq).(task).vessel(R).polyMask{Rmod});
+%                     roi{S}.(acq).(task).vesselSig(R,Rmod) = any(mafdr(pVal,'BHFDR',true)<0.05);
+%                 end
+%             end
+%             % % remove non-significant vessels only for the 5sDur task
+%             % % whether based on orignal or dilate1 roi (1 roi gains and 1 looses significance)
+%             % if isfield(roi{S}.(acq),'task_50sPrd5sDur')
+%             %     ind = roi{S}.(acq).task_50sPrd5sDur.vesselSig(:,3);
+%             %     roi{S}.(acq).task_50sPrd5sDur.vessel(~ind,:) = [];
+%             % end
+%         end
+%     end
+% end
+
+
+
 %% Plot ROIs
+hF  = cell(size(subList));
+hAO = cell(size(subList));
+hIO = cell(size(subList));
 for S = 1:size(subList,1)
     for A = 1%:length(acqList)
         acq  = acqList{A};
         if ~isfield(rCond{S},acq)          ; continue; end
         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+
+        %!!!!
+        curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,{'task_'}));
+        if ~any(ismember(curTaskList,{'task_50sPrd1sDur' 'task_50sPrd10sDur'})); continue; end
+        %!!!!
+
         for T = 1:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
 
             % Plot individual vessel ROIs
             tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
-            plotAct( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
+            [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
             % plotSpec([],{'psd' 'psdPS'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             % plotResp([],{'resp'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             
-
+            
+            
+            if roi{S}.(acq).(task).vessel(1).coefAdjFlag
+                coefAdjStr = 'subject-specific delay adjusted';
+            else
+                coefAdjStr = 'subject-specific delay NOT adjusted';
+            end
             ttlStr = strjoin({
                 rCond{S}.(acq).(task).sub
                 rCond{S}.(acq).(task).acq
                 rCond{S}.(acq).(task).prsc
                 rCond{S}.(acq).(task).vencAcq
                 rCond{S}.(acq).(task).task
+                [num2str(roi{S}.(acq).(task).vessel(1).R) ' runs']
+                coefAdjStr
             },'; ');
             title(tiling.sub.left.hA   ,ttlStr);
 
@@ -433,6 +477,33 @@ for S = 1:size(subList,1)
         end
     end
 end
+return
+
+S=1;
+threshOL(hIO{S}{A}{T},'on');
+threshOL(hIO{S}{A}{T},'off');
+threshOL(hIO{S}{A}{T},'actQ_original',0);
+threshOL(hIO{S}{A}{T},'actQ_dilate1',1);
+threshOL(hIO{S}{A}{T},'actQ_dilate1p5',0);
+threshOL(hIO{S}{A}{T},'actQ_dilate2',0);
+threshOL(hIO{S}{A}{T},'actQ_crop',0);
+
+adjPoly(hIO{S}{A}{T},'on');
+adjPoly(hIO{S}{A}{T},'original','k',-1);
+adjPoly(hIO{S}{A}{T},'dilate1','w',1);
+adjPoly(hIO{S}{A}{T},'dilate1p5','w',1);
+adjPoly(hIO{S}{A}{T},'dilate2','w',1);
+
+
+
+threshOL(hIO{S}{1}{1},'actQ_dilate1',0.5);
+
+S=1;
+adjAlpha(hIO{S}{1}{1},'act_imQ',1);
+adjAlpha(hIO{S}{1}{1},'act_imQ',0);
+adjAlpha(hIO{S}{1}{1},'act_imQ',0.5);
+adjAlpha(hIO{S}{1}{1},'off');
+            
 
 %% Summarize vessel spectra
 f   = {};
@@ -503,6 +574,25 @@ saveas(fSpecSmr,[fFig 'smrSpectra.jpg']);
 return
 
 %% %%%%%%%%%%%%%%%%%%%%%
+
+
+
+for S = 1:size(subList,1)
+    for A = 1%:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task); continue; end
+            if contains(rCond{S}.(acq).(task).volResp.mag.actCat.cmd,'-CENSORTR')
+                keyboard
+                disp(rCond{S}.(acq).(task).volResp.mag.actCat.cmd)
+            end
+        end
+    end
+end
+
 
 
 
