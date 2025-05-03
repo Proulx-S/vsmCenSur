@@ -183,7 +183,7 @@ for S = 1:length(rCond)
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
 
         %%%% Intereactively define frame/run grouping
-        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
+        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId,hFig] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
 
         %%%% Create new censor file based on clustering
         fCnsr_mainClust = replace(fClustId,'ClstIdx.1D',''); [fCnsr_mainClust,b,~] = fileparts(fCnsr_mainClust); fCnsr_mainClust = fullfile(fCnsr_mainClust,strcat('censorMainClst_',b,'.csv'));
@@ -253,8 +253,8 @@ end
 
 
 
-forceThis   = 1;
-verboseThis = 1;
+forceThis   = 0;
+verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Response estimation and activation detection processing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -357,6 +357,9 @@ for S = 1:size(subList,1)
             cropSz = 10;
             roi{S}.(acq).(task).vessel = getVesselRoi2(label,imField,im,cropSz);
             [roi{S}.(acq).(task).vessel.coefAdjFlag] = deal(coefAdjFlag);
+            for i = 1:length(roi{S}.(acq).(task).vessel)
+                roi{S}.(acq).(task).vessel(i).im.resp.dt = rCond{S}.(acq).(task).volResp.mag.respCat.param.trDecon;
+            end
 
             % add number of runs
             [roi{S}.(acq).(task).vessel.R] = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
@@ -371,6 +374,110 @@ for S = 1:size(subList,1)
             vessels = roi{S}.(acq).(task).vessel;
             vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
             roi{S}.(acq).(task).vessels = mergeRoi(vessels);
+
+
+            % add manual annotations
+            switch acq
+                case 'vfMRIinflow'
+                    switch task
+                        case 'task_50sPrd5sDur'
+                            switch S
+                                case 1
+                                    artSig = [1 2 3 6];
+                                    artCS  = [1 2 3 6];
+                                    artLR  = [];
+                                    artBlb = [];
+                                    veiSig = [1];
+                                    veiBlb = [1];
+                                case 2
+                                    artSig = [1 3 4];
+                                    artCS  = [1];
+                                    artLR  = [3 4];
+                                    artBlb = [];
+                                    veiSig = [1 2 3 4 5 6];
+                                    veiBlb = [1 2 3 4 5 6];
+                                case 4
+                                    artSig = [1 2 3];
+                                    artCS  = [3];
+                                    artLR  = [];
+                                    artBlb = [];
+                                    veiSig = [1 2 3];
+                                    veiBlb = [1 2 3];
+                                case 5
+                                    artSig = [1 2 3 4];
+                                    artCS  = [];
+                                    artLR  = [1 4];
+                                    artBlb = [3];
+                                    veiSig = [1 2 3 5];
+                                    veiBlb = [1 2 3];
+                                case 7
+                                    artSig = [1 2 3 4 5 6 7 8];
+                                    artCS  = [7];
+                                    artLR  = [1 6];
+                                    artBlb = [8];
+                                    veiSig = [1 2 3];
+                                    veiBlb = [1 2 3];
+                                case 8
+                                    artSig = [1 2 3 4 6 7];
+                                    artCS  = [2 4];
+                                    artLR  = [1];
+                                    artBlb = [];
+                                    veiSig = [1 2];
+                                    veiBlb = [1];
+                                case 10
+                                    artSig = [1 2 3];
+                                    artCS  = [];
+                                    artLR  = [1 3];
+                                    artBlb = [];
+                                    veiSig = [1 2];
+                                    veiBlb = [1 2];
+                                otherwise
+                                    artSig = [];
+                                    artCS  = [];
+                                    artLR  = [];
+                                    artBlb = [];
+                                    veiSig = [];
+                                    veiBlb = [];
+    
+                            end
+                        otherwise
+                    end
+                otherwise
+            end
+
+            %%% insert manual annotations
+            class = {roi{S}.(acq).(task).vessel.class};
+            id    = [roi{S}.(acq).(task).vessel.id];
+            %%%% significance
+            [roi{S}.(acq).(task).vessel.anot_sig]      = deal(false);
+            ind   = ismember(class,'artery') & ismember(id,artSig);
+            [roi{S}.(acq).(task).vessel(ind).anot_sig] = deal(true );
+            ind   = ismember(class,'vein')   & ismember(id,veiSig);
+            [roi{S}.(acq).(task).vessel(ind).anot_sig] = deal(true );
+            %%%% activation pattern
+            [roi{S}.(acq).(task).vessel.anot_actType]      = deal('');
+            %%%%% center-surround artery
+            ind   = ismember(class,'artery') & ismember(id,artCS);
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('center-surround');
+            %%%%% left-right artery
+            ind   = ismember(class,'artery') & ismember(id,artLR);
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('left-right');
+            %%%%% blob artery
+            ind   = ismember(class,'artery') & ismember(id,artBlb);
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('blob');
+            %%%%% blob vein
+            ind   = ismember(class,'vein')   & ismember(id,veiBlb);
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('blob');
+            %%%%% unclear
+            ind = cellfun('isempty',{roi{S}.(acq).(task).vessel.anot_actType});
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('unclear');
+            %%%%% non-significant
+            ind = ~[roi{S}.(acq).(task).vessel.anot_sig];
+            [roi{S}.(acq).(task).vessel(ind).anot_actType] = deal('non-sig');
+            
+            % [{roi{S}.(acq).(task).vessel.anot_actType}'...
+            % {roi{S}.(acq).(task).vessel.class}'...
+            % {roi{S}.(acq).(task).vessel.anot_sig}']
         end
     end
 end
@@ -427,10 +534,10 @@ for S = 1:size(subList,1)
         if ~isfield(rCond{S},acq)          ; continue; end
         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
 
-        %!!!!
-        curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,{'task_'}));
-        if ~any(ismember(curTaskList,{'task_50sPrd1sDur' 'task_50sPrd10sDur'})); continue; end
-        %!!!!
+        % %!!!!
+        % curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,{'task_'}));
+        % if ~any(ismember(curTaskList,{'task_50sPrd1sDur' 'task_50sPrd10sDur'})); continue; end
+        % %!!!!
 
         for T = 1:length(taskList)
             task = taskList{T};
@@ -439,8 +546,8 @@ for S = 1:size(subList,1)
             % Plot individual vessel ROIs
             tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
             [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            plotResp(rCond{S}.(acq).(task),{'resp_negPos'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             % plotSpec([],{'psd' 'psdPS'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
-            % plotResp([],{'resp'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             
             
             
