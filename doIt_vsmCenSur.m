@@ -79,7 +79,7 @@ end
 %% %%%%%%%%%%%%%%%%%%
 
 
-if 1
+if 0
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load preprocessed data
@@ -278,6 +278,7 @@ end
 
 
 
+
 %%%%%%%%%%%%%%%
 %% Get ROI data
 %%%%%%%%%%%%%%%
@@ -333,9 +334,6 @@ for S = 1:size(subList,1)
 
             % modify roi
             roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
-
-            % % add mt to vessel roi
-            % roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
 
             % % summarize rois (vox2roi)
             % vessels = roi{S}.(acq).(task).vessel;
@@ -495,16 +493,205 @@ end
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Add mt to vessel roi
+%%%%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    disp(['adding mt to roi: ' subList{S}])
+    for A = 1%:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task); continue; end
 
+            % add mt to vessel roi
+            roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
+        end
+    end
+end
+%% %%%%%%%%%%%%%%%%%%%%
 
+save tmpRoi roi -v7.3
 save tmp -v7.3
 else
+    load tmpRoi
     load tmp
 end
 
 
 
 return
+
+%% Summarize roi
+for S = 1:size(subList,1)
+    for A = 1%:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task); continue; end
+            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel);
+        end
+    end
+end
+
+
+vessels       = [];
+vesselsSub    = {};
+vesselsAcq    = {};
+vesselsTask   = {};
+A = 1; acq  = acqList{A};
+T = 1; task = taskList{T};
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)); continue; end
+    if ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)); continue; end
+    vessels = cat(1,vessels,roi{S}.(acq).(task).vessel);
+    vesselsSub = cat(1,vesselsSub,repmat(subList(S),size(roi{S}.(acq).(task).vessel)));
+    vesselsAcq = cat(1,vesselsAcq,repmat({acq},size(roi{S}.(acq).(task).vessel)));
+    vesselsTask = cat(1,vesselsTask,repmat({task},size(roi{S}.(acq).(task).vessel)));
+    % {roi{S}.(acq).(task).vessel.class}
+    % [roi{S}.(acq).(task).vessel.anot_sig]
+    % {roi{S}.(acq).(task).vessel.anot_actType}
+end
+[vessels.sub]  = deal(vesselsSub{:});  clear vesselsSub
+[vessels.acq]  = deal(vesselsAcq{:});  clear vesselsAcq
+[vessels.task] = deal(vesselsTask{:}); clear vesselsTask
+%%% remove inactive vessels
+vessels(~[vessels.anot_sig]) = [];
+
+metricList = [roi{S}.(acq).(task).vessel(1).smr{:}]; metricList = {metricList.metric}
+ind = ismember(metricList,'resp_dilate1_actQ_actSgn');
+smr = cat(1,vessels.smr);
+smr = cat(1,smr{:,ind});
+[smr.class] = deal(vessels.class);
+[smr.anot_actType] = deal(vessels.anot_actType);
+[smr.sub] = deal(vessels.sub);
+[smr.acq] = deal(vessels.acq);
+[smr.task] = deal(vessels.task);
+
+%%% Get vessel responses
+respArtAll = smrRoi(smr,ismember({smr.class},'artery'));
+respArtCS  = smrRoi(smr,ismember({smr.class},'artery') & ismember({smr.anot_actType},'center-surround'));
+respArtLR  = smrRoi(smr,ismember({smr.class},'artery') & ismember({smr.anot_actType},'left-right'));
+respVeiAll = smrRoi(smr,ismember({smr.class},'vein'  ));
+
+
+figure('WindowStyle','docked');
+
+% All arteries subplot
+axArtAll = subplot(2,3,1);
+hArtAllNeg = shplot(respArtAll.t, respArtAll.vecAv(:,1), respArtAll.vecErr(:,1), 'b'); delete([hArtAllNeg.upper hArtAllNeg.lower]);
+hold on;
+hArtAllPos = shplot(respArtAll.t, respArtAll.vecAv(:,2), respArtAll.vecErr(:,2), 'r'); delete([hArtAllPos.upper hArtAllPos.lower]);
+title('All Arteries');
+xlabel('time post-stim onset (s)');
+ylabel('MR signal change');
+legend([hArtAllNeg.line, hArtAllPos.line], respArtAll.label, 'Location', 'best');
+grid on;
+axis tight;
+
+% CS arteries subplot
+axArtCS = subplot(2,3,2);
+hArtCSNeg = shplot(respArtCS.t, respArtCS.vecAv(:,1), respArtCS.vecErr(:,1), 'b'); delete([hArtCSNeg.upper hArtCSNeg.lower]);
+hold on;
+hArtCSPos = shplot(respArtCS.t, respArtCS.vecAv(:,2), respArtCS.vecErr(:,2), 'r'); delete([hArtCSPos.upper hArtCSPos.lower]);
+title('Center-Surround Arteries');
+xlabel('time post-stim onset (s)');
+ylabel('MR signal change');
+legend([hArtCSNeg.line, hArtCSPos.line], respArtCS.label, 'Location', 'best');
+grid on;
+axis tight;
+
+% LR arteries subplot
+axArtLR = subplot(2,3,3);
+hArtLRNeg = shplot(respArtLR.t, respArtLR.vecAv(:,1), respArtLR.vecErr(:,1), 'b'); delete([hArtLRNeg.upper hArtLRNeg.lower]);
+hold on;
+hArtLRPos = shplot(respArtLR.t, respArtLR.vecAv(:,2), respArtLR.vecErr(:,2), 'r'); delete([hArtLRPos.upper hArtLRPos.lower]);
+title('Left-Right Arteries');
+xlabel('time post-stim onset (s)');
+ylabel('MR signal change');
+legend([hArtLRNeg.line, hArtLRPos.line], respArtLR.label, 'Location', 'best');
+grid on;
+axis tight;
+
+% All veins subplot
+axVeiAll = subplot(2,3,4);
+hVeiAllPos = shplot(respVeiAll.t, respVeiAll.vecAv(:,2), respVeiAll.vecErr(:,2), 'r'); delete([hVeiAllPos.upper hVeiAllPos.lower]);
+title('All Veins');
+xlabel('time post-stim onset (s)');
+ylabel('MR signal change');
+grid on;
+axis tight;
+
+set([axArtAll axArtCS axArtLR axVeiAll],'YLim',[-1 1].*max(abs([axArtAll.YLim axArtCS.YLim axArtLR.YLim axVeiAll.YLim])));
+
+
+
+
+
+
+
+
+
+
+
+
+
+% Create a new figure for individual traces
+figure('WindowStyle','docked');
+
+
+plot(respArt.t,squeeze(respArt.vec(:,1,:))); hold on;
+plot(respVei.t,squeeze(respVei.vec(:,1,:)));
+
+
+
+
+
+respArt.f = smrArt(1).vec.mt.psd.f;
+respVei.f = smrVei(1).vec.mt.psd.f;
+
+
+
+
+
+{smrArt.sub}'
+{smrVei.sub}'
+{smrArt.acq}'
+{smrVei.acq}'
+{smrArt.task}'
+{smrVei.task}'
+{smrArt.anot_actType}'
+{smrVei.anot_actType}'
+{smrArt.class}'
+{smrVei.class}'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+resp.vec = [];
+resp.sub = {};
+resp.acq = {};
+resp.task = {};
+resp.vessel = {};
+resp.metric = {};
+resp.nVoxRoi = [];
+resp.nVox = [];
 
 
 
@@ -528,9 +715,11 @@ for S = 1:size(subList,1)
             if ~isfield(rCond{S}.(acq),task); continue; end
 
             % Plot individual vessel ROIs
-            tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
-            [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-            roi{S}.(acq).(task).vessel = plotResp(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            % tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
+            % [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            % roi{S}.(acq).(task).vessel = plotResp(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel);
+            % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'},roi{S}.(acq).(task).vessel);
             % plotSpec([],{'psd' 'psdPS'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
             
             
