@@ -43,9 +43,9 @@ addpath(genpath(fullfile(toolDir,'chronux/chronux_2_12/modified')))
 tool = 'fieldtrip'; toolURL = 'https://github.com/fieldtrip/fieldtrip';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,'fieldtrip/external/freesurfer')))
-tool = 'shplot'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
-if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
-addpath(genpath(fullfile(toolDir,tool)))
+% tool = 'shplot'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
+% if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
+% addpath(genpath(fullfile(toolDir,tool)))
 tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
 if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 addpath(genpath(fullfile(toolDir,tool)))
@@ -268,9 +268,17 @@ for S = 1:size(subList,1)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
 
             [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+            
+            %%% get nTrial
+            volResp.respCat.xMat.nTrial = sum(volResp.respCat.xMat.mat(~volResp.respCat.xMat.cnsr,volResp.respCat.xMat.nPoly+1:end),1);
+            if length(volResp.respCat.xMat.nTrial)~=volResp.respCat.xMat.nReg; dbstack; error('nTrial mismatch'); end
+
+            
+            %%% compile results
             rCond{S}.(acq).(task).volResp.mag       = volResp;
             rCond{S}.(acq).(task).volResp.cmplx     = volRespCmplx;
             rCond{S}.(acq).(task).volResp.cmplxMag1 = volRespCmplxMag1;
+
         end
     end
 end
@@ -300,6 +308,7 @@ for S = 1:size(subList,1)
                 'base'
                 'vesselness'
                 'resp'
+                'respSd'
                 'respF'
                 'respP'
                 'respQ'
@@ -314,6 +323,7 @@ for S = 1:size(subList,1)
                 label.fBase
                 label.fBaseList{contains(b,'vesselness.nii')}
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
+                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_pVal)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_qVal)
@@ -329,8 +339,9 @@ for S = 1:size(subList,1)
                 roi{S}.(acq).(task).vessel(i).im.resp.dt = rCond{S}.(acq).(task).volResp.mag.respCat.param.trDecon;
             end
 
-            % add number of runs
-            [roi{S}.(acq).(task).vessel.R] = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
+            % add number of runs and trials
+            [roi{S}.(acq).(task).vessel.R]      = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
+            [roi{S}.(acq).(task).vessel.nTrial] = deal(rCond{S}.(acq).(task).volResp.mag.respCat.xMat.nTrial');
 
             % modify roi
             roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
@@ -525,15 +536,32 @@ end
 return
 
 %% Summarize roi
+
+plotIt = 1;
+if plotIt
+    close all
+    figure('WindowStyle','docked');
+    drawnow;
+end
 for S = 1:size(subList,1)
     for A = 1%:length(acqList)
         acq  = acqList{A};
         if ~isfield(rCond{S},acq)          ; continue; end
         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
-        for T = 1:length(taskList)
+        for T = 1%:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
-            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel);
+            
+            % plot vessel roi
+            if plotIt
+                tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
+                smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            end
+
+            % get data
+            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn' 'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
         end
     end
 end
@@ -735,9 +763,9 @@ for S = 1:size(subList,1)
             if ~isfield(rCond{S}.(acq),task); continue; end
 
             % Plot individual vessel ROIs
-            % tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
-            % [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-            % roi{S}.(acq).(task).vessel = plotResp(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
+            [hF{S}{A}{T},hAO{S}{A}{T},hIO{S}{A}{T}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+            roi{S}.(acq).(task).vessel = plotResp(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
             roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn'},roi{S}.(acq).(task).vessel);
             % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'},roi{S}.(acq).(task).vessel);
             % plotSpec([],{'psd' 'psdPS'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA)
