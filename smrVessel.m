@@ -1,4 +1,4 @@
-function resp = smrRoi(smr,ind)
+function resp = smrVessel(smr,ind)
 resp       = [];
 resp.vec   = cat(3,smr(ind).vec);
 resp.t     = cat(3,smr(ind).x);

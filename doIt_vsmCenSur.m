@@ -516,8 +516,8 @@ end
 save tmpRoi roi -v7.3
 save tmp -v7.3
 else
-    load tmpRoi
     load tmp
+    load tmpRoi
 end
 
 
@@ -559,8 +559,8 @@ end
 [vessels.sub]  = deal(vesselsSub{:});  clear vesselsSub
 [vessels.acq]  = deal(vesselsAcq{:});  clear vesselsAcq
 [vessels.task] = deal(vesselsTask{:}); clear vesselsTask
-%%% remove inactive vessels
-vessels(~[vessels.anot_sig]) = [];
+% %%% remove inactive vessels
+% vessels(~[vessels.anot_sig]) = [];
 
 metricList = [roi{S}.(acq).(task).vessel(1).smr{:}]; metricList = {metricList.metric}
 ind = ismember(metricList,'resp_dilate1_actQ_actSgn');
@@ -573,63 +573,83 @@ smr = cat(1,smr{:,ind});
 [smr.task] = deal(vessels.task);
 
 %%% Get vessel responses
-respArtAll = smrRoi(smr,ismember({smr.class},'artery'));
-respArtCS  = smrRoi(smr,ismember({smr.class},'artery') & ismember({smr.anot_actType},'center-surround'));
-respArtLR  = smrRoi(smr,ismember({smr.class},'artery') & ismember({smr.anot_actType},'left-right'));
-respVeiAll = smrRoi(smr,ismember({smr.class},'vein'  ));
+respArtAct   = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig'));
+respArtCS    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'));
+respArtLR    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right'));
+respArtInact = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig'));
+respVeiAct   = smrVessel(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig'));
+respVeiInact = smrVessel(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig'));
 
 
-figure('WindowStyle','docked');
+hF = figure('WindowStyle','docked');
+ht = tiledlayout(2,3);
+ht.TileSpacing = 'tight';
+ht.Padding = 'tight';
 
-% All arteries subplot
-axArtAll = subplot(2,3,1);
-hArtAllNeg = shplot(respArtAll.t, respArtAll.vecAv(:,1), respArtAll.vecErr(:,1), 'b'); delete([hArtAllNeg.upper hArtAllNeg.lower]);
+% Active arteries subplot
+axArtAct = nexttile(ht);
+hArtActNeg = shplot(respArtAct.t, respArtAct.vecAv(:,1), respArtAct.vecErr(:,1), '-.r'); delete([hArtActNeg.upper hArtActNeg.lower]);
 hold on;
-hArtAllPos = shplot(respArtAll.t, respArtAll.vecAv(:,2), respArtAll.vecErr(:,2), 'r'); delete([hArtAllPos.upper hArtAllPos.lower]);
-title('All Arteries');
+hArtActPos = shplot(respArtAct.t, respArtAct.vecAv(:,2), respArtAct.vecErr(:,2), '-r'); delete([hArtActPos.upper hArtActPos.lower]);
+title(axArtAct,['All Active Arteries (n=' num2str(size(respArtAct.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
 xlabel('time post-stim onset (s)');
 ylabel('MR signal change');
-legend([hArtAllNeg.line, hArtAllPos.line], respArtAll.label, 'Location', 'best');
+legend([hArtActNeg.line, hArtActPos.line], strcat(respArtAct.label,'Vox'), 'Location', 'best');
 grid on;
 axis tight;
+hArtActNeg.patch.FaceAlpha = 0.2;
+hArtActPos.patch.FaceAlpha = 0.2;
+hArtActNeg.patch.FaceColor = 'r';
+hArtActPos.patch.FaceColor = 'r';
 
 % CS arteries subplot
-axArtCS = subplot(2,3,2);
-hArtCSNeg = shplot(respArtCS.t, respArtCS.vecAv(:,1), respArtCS.vecErr(:,1), 'b'); delete([hArtCSNeg.upper hArtCSNeg.lower]);
+axArtCS = nexttile(ht);
+hArtCSNeg = shplot(respArtCS.t, respArtCS.vecAv(:,1), respArtCS.vecErr(:,1), '-.r'); delete([hArtCSNeg.upper hArtCSNeg.lower]);
 hold on;
-hArtCSPos = shplot(respArtCS.t, respArtCS.vecAv(:,2), respArtCS.vecErr(:,2), 'r'); delete([hArtCSPos.upper hArtCSPos.lower]);
-title('Center-Surround Arteries');
+hArtCSPos = shplot(respArtCS.t, respArtCS.vecAv(:,2), respArtCS.vecErr(:,2), '-r'); delete([hArtCSPos.upper hArtCSPos.lower]);
+title(axArtCS,['Center-Surround Arteries (n=' num2str(size(respArtCS.vec,3)) ')']);
 xlabel('time post-stim onset (s)');
 ylabel('MR signal change');
-legend([hArtCSNeg.line, hArtCSPos.line], respArtCS.label, 'Location', 'best');
+legend([hArtCSNeg.line, hArtCSPos.line], strcat(respArtCS.label,'Vox'), 'Location', 'best');
 grid on;
 axis tight;
+hArtCSNeg.patch.FaceAlpha = 0.2;
+hArtCSPos.patch.FaceAlpha = 0.2;
+hArtCSNeg.patch.FaceColor = 'r';
+hArtCSPos.patch.FaceColor = 'r';
+
 
 % LR arteries subplot
-axArtLR = subplot(2,3,3);
-hArtLRNeg = shplot(respArtLR.t, respArtLR.vecAv(:,1), respArtLR.vecErr(:,1), 'b'); delete([hArtLRNeg.upper hArtLRNeg.lower]);
+axArtLR = nexttile(ht);
+hArtLRNeg = shplot(respArtLR.t, respArtLR.vecAv(:,1), respArtLR.vecErr(:,1), '-.r'); delete([hArtLRNeg.upper hArtLRNeg.lower]);
 hold on;
-hArtLRPos = shplot(respArtLR.t, respArtLR.vecAv(:,2), respArtLR.vecErr(:,2), 'r'); delete([hArtLRPos.upper hArtLRPos.lower]);
-title('Left-Right Arteries');
+hArtLRPos = shplot(respArtLR.t, respArtLR.vecAv(:,2), respArtLR.vecErr(:,2), '-r'); delete([hArtLRPos.upper hArtLRPos.lower]);
+title(axArtLR,['Left-Right Arteries (n=' num2str(size(respArtLR.vec,3)) ')']);
 xlabel('time post-stim onset (s)');
 ylabel('MR signal change');
-legend([hArtLRNeg.line, hArtLRPos.line], respArtLR.label, 'Location', 'best');
+legend([hArtLRNeg.line, hArtLRPos.line], strcat(respArtLR.label,'Vox'), 'Location', 'best');
 grid on;
 axis tight;
+hArtLRNeg.patch.FaceAlpha = 0.2;
+hArtLRPos.patch.FaceAlpha = 0.2;
+hArtLRNeg.patch.FaceColor = 'r';
+hArtLRPos.patch.FaceColor = 'r';
 
-% All veins subplot
-axVeiAll = subplot(2,3,4);
-hVeiAllPos = shplot(respVeiAll.t, respVeiAll.vecAv(:,2), respVeiAll.vecErr(:,2), 'r'); delete([hVeiAllPos.upper hVeiAllPos.lower]);
-title('All Veins');
+% Active veins subplot
+axVeiAct = nexttile(ht);
+hVeiActPos = shplot(respVeiAct.t, respVeiAct.vecAv(:,2), respVeiAct.vecErr(:,2), '-b'); delete([hVeiActPos.upper hVeiActPos.lower]);
+title(axVeiAct,['All Active Veins (n=' num2str(size(respVeiAct.vec,3)) '/' num2str(nnz(ismember({smr.class},'vein'))) ')']);
 xlabel('time post-stim onset (s)');
 ylabel('MR signal change');
 grid on;
 axis tight;
+hVeiActPos.patch.FaceAlpha = 0.2;
+hVeiActPos.patch.FaceColor = 'b';
 
-set([axArtAll axArtCS axArtLR axVeiAll],'YLim',[-1 1].*max(abs([axArtAll.YLim axArtCS.YLim axArtLR.YLim axVeiAll.YLim])));
+set([axArtAct axArtCS axArtLR axVeiAct],'YLim',[-1 1].*max(abs([axArtAct.YLim axArtCS.YLim axArtLR.YLim axVeiAct.YLim])));
 
-
-
+saveas(hF,'smrVesselResponses.fig');
+saveas(hF,'smrVesselResponses.png');
 
 
 
