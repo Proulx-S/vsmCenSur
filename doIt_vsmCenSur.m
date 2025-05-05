@@ -537,7 +537,9 @@ return
 
 %% Summarize roi
 
-plotIt = 1;
+plotIt  = 1;
+saveIt  = 1;
+printIt = 1;
 if plotIt
     close all
     figure('WindowStyle','docked');
@@ -555,13 +557,29 @@ for S = 1:size(subList,1)
             % plot vessel roi
             if plotIt
                 tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
-                smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                hF = {}; hA = {};
+                [hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                if saveIt
+                    saveas(tiling.main.hF,[subList{S},'_UL.fig']);
+                    saveas(hFol,[subList{S},'_OL.fig']);
+                    saveas(hF{1}{1},[subList{S},'_resp.fig']);
+                    saveas(hF{2}{1},[subList{S},'_psd.fig']);
+                    saveas(hF{3}{1},[subList{S},'_psdTrialGram.fig']);
+                end
+                if printIt
+                    print(tiling.main.hF, [subList{S}, '_UL.svg'], '-dsvg', '-painters');
+                    print(hFol, [subList{S}, '_OL.svg'], '-dsvg', '-painters');
+                    print(hF{1}{1}, [subList{S}, '_resp.svg'], '-dsvg', '-painters');
+                    print(hF{2}{1}, [subList{S}, '_psd.svg'], '-dsvg', '-painters');
+                    print(hF{3}{1}, [subList{S}, '_psdTrialGram.svg'], '-dsvg', '-painters');
+                end
             end
 
             % get data
-            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ' 'resp_dilate1_actQ_actSgn' 'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
+            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' 'psd_dilate1_actQ' 'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
         end
     end
 end
