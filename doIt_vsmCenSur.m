@@ -537,7 +537,7 @@ return
 
 %% Summarize roi
 
-plotIt  = 1;
+plotIt  = 0;
 saveIt  = 1;
 printIt = 1;
 if plotIt
