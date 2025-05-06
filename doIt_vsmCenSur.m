@@ -79,7 +79,7 @@ end
 %% %%%%%%%%%%%%%%%%%%
 
 
-if 0
+if 1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load preprocessed data
@@ -479,9 +479,13 @@ for S = 1:size(subList,1)
     for A = 1%:length(acqList)
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         if contains(acq,{'bold'}); continue; end
-        for T = 1:length(taskList)
+        for T = 1%:length(taskList)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-            
+            disp('--------------------------------');
+            disp('--------------------------------');
+            disp(['SUB ' subList{S} ' ACQ ' acq ' TASK ' task]);
+            disp('--------------------------------');
+            disp('--------------------------------');
 
             % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
@@ -515,8 +519,8 @@ for S = 1:size(subList,1)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
 
-            % add mt to vessel roi
-            roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.runAv,roi{S}.(acq).(task).vessel);
+            % add mt to vessel roi (computed on each run then averaged)
+            roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.run,roi{S}.(acq).(task).vessel);
         end
     end
 end
