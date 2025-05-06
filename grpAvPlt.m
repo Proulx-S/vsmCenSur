@@ -1,5 +1,7 @@
-function grpAvPlt(roi,subList,acq,task,metric,pltType)
+function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel)
     if ~exist('pltType','var'); pltType = []; end
+    if ~exist('winIndLabel','var');   winIndLabel = []; end
+    saveFlag = 1;
 
     vessels       = [];
     vesselsSub    = {};
@@ -19,16 +21,13 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
     [vessels.sub]  = deal(vesselsSub{:});  clear vesselsSub
     [vessels.acq]  = deal(vesselsAcq{:});  clear vesselsAcq
     [vessels.task] = deal(vesselsTask{:}); clear vesselsTask
-    % %%% remove inactive vessels
-    % vessels(~[vessels.anot_sig]) = [];
-
+    
+    % extract metric
     metricList = {};
     for m = 1:length(roi{S}.(acq).(task).vessel(1).smr)
         metricList{m} = roi{S}.(acq).(task).vessel(1).smr{m}.metric;
     end
 
-
-    
     ind = ismember(metricList,metric);
     smr = cat(1,vessels.smr);
     smr = cat(1,smr{:,ind});
@@ -45,14 +44,21 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
     artAct   = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        ,onsetList);
     artCS    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'),onsetList);
     artLR    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     ,onsetList);
-    artInact = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        ,onsetList);
+    artInact = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'non-sig')        ,onsetList);
     veiAct   = smrVessel(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        ,onsetList);
     veiInact = smrVessel(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        ,onsetList);
+
+    %% Colate data across subjects
+    artAct   = smrSubject(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        ,onsetList);
+    artCS    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'),onsetList);
+    artLR    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     ,onsetList);
+    veiAct   = smrSubject(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        ,onsetList);
+    veiInact = smrSubject(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        ,onsetList);
 
     
 
     switch metric
-        case 'psdTrialGram_dilate1_actQ'
+        case {'psdTrialGram_dilate1_actQ' 'psdTrialGram_original_actQ'}
             %% Trial-triggered time-frequency PSD responses
             hF = figure('WindowStyle','docked');
             ht = tiledlayout(2,3);
@@ -74,20 +80,33 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     y   =  permute(dat.f,[5 7 3 2 4 6 1 8]);
                     zAv =  permute(dat.vecAv ,[5 7 3 2 4 6 1 8]);
                     zEr =  permute(dat.vecErr,[5 7 3 2 4 6 1 8]);
-                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+
                     winSz = mean(diff(x,[],7));
+                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+                    if isempty(winIndLabel)
+                        % window 1 starts at stim onset and window 2 is that last one
+                        winInd = [b size(x,2)];
+                    elseif strcmp(winIndLabel,'bNa15sec')
+                        % window 1 ends at 15 seconds and window 2 starts at 15 seconds
+                        [a,b1] = min(abs(x(1,:,1,1,1,1,2)-15));
+                        [a,b2] = min(abs(x(1,:,1,1,1,1,1)-15));
+                        winInd = [b1 b2];
+                    else
+                        error('Invalid window index');
+                    end
                     x = mean(x,7);
+
                     h = imagesc(ax{end},x,y,zAv);
-                    xline(ax{end},x(b),'--k');
-                    xline(ax{end},x(end),'--k');
+                    xline(ax{end},x(winInd(1)),'--k');
+                    xline(ax{end},x(winInd(2)),'-k');
                     title(ax{end},['All Active Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     ylabel('Frequency (Hz)');
                     xlabel('time post-stim onset (s)');
                     grid on;
                     axis tight;
                     yLim = ylim;
-                    line(ax{end},x(b)  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
-                    line(ax{end},x(end)+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(1))  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(2))+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
                     
 
 
@@ -102,16 +121,16 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     winSz = mean(diff(x,[],7));
                     x = mean(x,7);
                     h = imagesc(ax{end},x,y,zAv);
-                    xline(ax{end},x(b),'--k');
-                    xline(ax{end},x(end),'--k');
+                    xline(ax{end},x(winInd(1)),'--k');
+                    xline(ax{end},x(winInd(2)),'-k');
                     title(ax{end},['Center-Surround Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     ylabel('Frequency (Hz)');
                     xlabel('time post-stim onset (s)');
                     grid on;
                     axis tight;
                     yLim = ylim;
-                    line(ax{end},x(b)  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
-                    line(ax{end},x(end)+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(1))  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(2))+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
                     
 
                     % LR arteries subplot
@@ -125,16 +144,16 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     winSz = mean(diff(x,[],7));
                     x = mean(x,7);
                     h = imagesc(ax{end},x,y,zAv);
-                    xline(ax{end},x(b),'--k');
-                    xline(ax{end},x(end),'--k');
+                    xline(ax{end},x(winInd(1)),'--k');
+                    xline(ax{end},x(winInd(2)),'-k');
                     title(ax{end},['Left-Right Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     ylabel('Frequency (Hz)');
                     xlabel('time post-stim onset (s)');
                     grid on;
                     axis tight;
                     yLim = ylim;
-                    line(ax{end},x(b)  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
-                    line(ax{end},x(end)+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(1))  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(2))+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
                     
 
                     % Active veins subplot
@@ -148,42 +167,42 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     winSz = mean(diff(x,[],7));
                     x = mean(x,7);
                     h = imagesc(ax{end},x,y,zAv);
-                    xline(ax{end},x(b),'--k');
-                    xline(ax{end},x(end),'--k');
+                    xline(ax{end},x(winInd(1)),'--k');
+                    xline(ax{end},x(winInd(2)),'-k');
                     title(ax{end},['All Active Vein (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'vein'))) ')']);
                     ylabel('Frequency (Hz)');
                     xlabel('time post-stim onset (s)');
                     grid on;
                     axis tight;
                     yLim = ylim;
-                    line(ax{end},x(b)  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
-                    line(ax{end},x(end)+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(1))  +[-0.5 0.5].*winSz,yLim(2)*[0.99 0.99],'linestyle','-','color','k','linewidth',3);
+                    line(ax{end},x(winInd(2))+[-0.5 0.5].*winSz,yLim(2)*[0.97 0.97],'linestyle','-','color','k','linewidth',3);
                     
 
 
-                    ax = [ax{:}];
-                    axis(ax,'tight');
-                    cLim = get(ax,'CLim'); if iscell(cLim); cLim = cat(1,cLim{:}); end; cLim = [min(cLim(:,1)) max(cLim(:,2))];
-                    set(ax,'CLim',cLim,'ColorScale','log','YDir','normal','XLim',[0 mean(diff(onsetList))]);
+                    axis([ax{:}],'tight');
+                    cLim = get([ax{:}],'CLim'); if iscell(cLim); cLim = cat(1,cLim{:}); end; cLim = [min(cLim(:,1)) max(cLim(:,2))];
+                    xLim = get([ax{:}],'XLim'); if iscell(xLim); xLim = cat(1,xLim{:}); end; xLim = [min(xLim(:,1)) max(xLim(:,2))];
+                    xLim(2) = mean(diff(onsetList));
+                    set([ax{:}],'CLim',cLim,'ColorScale','log','YDir','normal','XLim',xLim);
 
 
-
-                    size(dat.t)
-                    roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.param.dsgn
-                    
                     K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
                     param = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.param;
-                    N     = length(param.dsgn.onsetList)*param.dsgn.win(1);
+                    winSz = param.dsgn.win(1);
+                    N     = length(param.dsgn.onsetList)*winSz;
                     Fs    = param.Fs;
                     T     = N/Fs;
-                    [TW,W,K] = K2W(T,K);
+                    [TW,W,K] = K2W(T,K,0);
 
-                    line(ax(end),x(b)  .* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
-                    line(ax(end),x(end).* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
+                    line(ax{end},x(winInd(1))  .* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
+                    line(ax{end},x(winInd(2)).* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
                                         
 
-                    saveas(hF,'smrVesselTimeFreqPSD.fig');
-                    saveas(hF,'smrVesselTimeFreqPSD.png');
+                    if saveFlag
+                        saveas(hF,['smrVesselTimeFreqPSD_K' num2str(K) '_winSz' num2str(winSz) 'tPts_' winIndLabel '.fig']);
+                        saveas(hF,['smrVesselTimeFreqPSD_K' num2str(K) '_winSz' num2str(winSz) 'tPts_' winIndLabel '.png']);
+                    end
             
 
                 case 'freq'
@@ -194,13 +213,28 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     y   =  permute(dat.f,[5 7 3 2 4 6 1 8]);
                     zAv =  permute(dat.vecAv ,[5 7 3 2 4 6 1 8]);
                     zEr =  permute(dat.vecErr,[5 7 3 2 4 6 1 8]);
-                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
-                    winSz = mean(diff(x,[],7));
-                    x = mean(x,7);
 
-                    hHyper     = shplot2(y, zAv(:,b), zEr(:,b), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
+                    winSz = mean(diff(x,[],7));
+                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+                    if isempty(winIndLabel)
+                        % window 1 starts at stim onset and window 2 is that last one
+                        winInd = [b size(x,2)];
+                    elseif strcmp(winIndLabel,'bNa15sec')
+                        % window 1 ends at 15 seconds and window 2 starts at 15 seconds
+                        [a,b1] = min(abs(x(1,:,1,1,1,1,2)-15));
+                        [a,b2] = min(abs(x(1,:,1,1,1,1,1)-15));
+                        winInd = [b1 b2];
+                    else
+                        error('Invalid window index');
+                    end
+                    x = mean(x,7);
+                    
+
+                    
+                    
+                    hHyper     = shplot2(y, zAv(:,winInd(1)), zEr(:,winInd(1)), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
                     hold on;
-                    hPostHyper = shplot2(y, zAv(:,end), zEr(:,end), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
+                    hPostHyper = shplot2(y, zAv(:,winInd(2)), zEr(:,winInd(2)), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
                     
                     title(ax{end},['All Active Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
@@ -221,13 +255,13 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     y   =  permute(dat.f,[5 7 3 2 4 6 1 8]);
                     zAv =  permute(dat.vecAv ,[5 7 3 2 4 6 1 8]);
                     zEr =  permute(dat.vecErr,[5 7 3 2 4 6 1 8]);
-                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
-                    winSz = mean(diff(x,[],7));
+                    % [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+                    % winSz = mean(diff(x,[],7));
                     x = mean(x,7);
 
-                    hHyper     = shplot2(y, zAv(:,b), zEr(:,b), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
+                    hHyper     = shplot2(y, zAv(:,winInd(1)), zEr(:,winInd(1)), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
                     hold on;
-                    hPostHyper = shplot2(y, zAv(:,end), zEr(:,end), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
+                    hPostHyper = shplot2(y, zAv(:,winInd(2)), zEr(:,winInd(2)), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
                     
                     title(ax{end},['Center-Surround Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
@@ -247,15 +281,15 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     y   =  permute(dat.f,[5 7 3 2 4 6 1 8]);
                     zAv =  permute(dat.vecAv ,[5 7 3 2 4 6 1 8]);
                     zEr =  permute(dat.vecErr,[5 7 3 2 4 6 1 8]);
-                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
-                    winSz = mean(diff(x,[],7));
+                    % [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+                    % winSz = mean(diff(x,[],7));
                     x = mean(x,7);
 
-                    hHyper     = shplot2(y, zAv(:,b), zEr(:,b), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
+                    hHyper     = shplot2(y, zAv(:,winInd(1)), zEr(:,winInd(1)), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
                     hold on;
-                    hPostHyper = shplot2(y, zAv(:,end), zEr(:,end), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
+                    hPostHyper = shplot2(y, zAv(:,winInd(2)), zEr(:,winInd(2)), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
                     
-                    title(ax{end},['Center-Surround Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
+                    title(ax{end},['Left-Right Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
                     ylabel('PSD');
                     % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
@@ -273,13 +307,13 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     y   =  permute(dat.f,[5 7 3 2 4 6 1 8]);
                     zAv =  permute(dat.vecAv ,[5 7 3 2 4 6 1 8]);
                     zEr =  permute(dat.vecErr,[5 7 3 2 4 6 1 8]);
-                    [a,b] = min(abs(x(1,:,1,1,1,1,1)));
-                    winSz = mean(diff(x,[],7));
+                    % [a,b] = min(abs(x(1,:,1,1,1,1,1)));
+                    % winSz = mean(diff(x,[],7));
                     x = mean(x,7);
 
-                    hHyper     = shplot2(y, zAv(:,b), zEr(:,b), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
+                    hHyper     = shplot2(y, zAv(:,winInd(1)), zEr(:,winInd(1)), ax{end}, '-k'); delete([hHyper.upper hHyper.lower]);
                     hold on;
-                    hPostHyper = shplot2(y, zAv(:,end), zEr(:,end), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
+                    hPostHyper = shplot2(y, zAv(:,winInd(2)), zEr(:,winInd(2)), ax{end}, '--k'); delete([hPostHyper.upper hPostHyper.lower]);
                     
                     title(ax{end},['All Active Veins (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'vein'))) ')']);
                     xlabel('Frequency (Hz)');
@@ -293,10 +327,9 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                     hPostHyper.patch.FaceColor = 'k';
 
 
-                    ax = [ax{:}];
-                    axis(ax,'tight');
-                    yLim = get(ax,'YLim'); if iscell(yLim); yLim = cat(1,yLim{:}); end; yLim = [min(yLim(:,1)) max(yLim(:,2))];
-                    set(ax,'YLim',yLim,'YScale','log');
+                    axis([ax{:}],'tight');
+                    yLim = get([ax{:}],'YLim'); if iscell(yLim); yLim = cat(1,yLim{:}); end; yLim = [min(yLim(:,1)) max(yLim(:,2))];
+                    set([ax{:}],'YLim',yLim,'YScale','log');
 
                     legend([hHyper.line hPostHyper.line], {'hyperhemia' 'post-hyperhemia'}, 'Location', 'northeast','AutoUpdate','off');
                     
@@ -305,17 +338,20 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
 
                     K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
                     param = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.param;
-                    N     = length(param.dsgn.onsetList)*param.dsgn.win(1);
+                    winSz = param.dsgn.win(1);
+                    N     = length(param.dsgn.onsetList)*winSz;
                     Fs    = param.Fs;
                     T     = N/Fs;
-                    [TW,W,K] = K2W(T,K);
+                    [TW,W,K] = K2W(T,K,0);
 
                     xLim = xlim;
                     yLim = ylim;
-                    line(ax(end),mean(xLim) + [-W W],yLim(2).*[1 1],'linestyle','-','color','r','linewidth',2);
+                    line(ax{end},mean(xLim) + [-W W],yLim(2).*[1 1],'linestyle','-','color','r','linewidth',2);
                     
-                    saveas(hF,'smrVesselPrePostPSD.fig');
-                    saveas(hF,'smrVesselPrePostPSD.png');
+                    if saveFlag
+                        saveas(hF,['smrVesselPrePostPSD_K' num2str(K) '_winSz' num2str(winSz) 'tPts_' winIndLabel '.fig']);
+                        saveas(hF,['smrVesselPrePostPSD_K' num2str(K) '_winSz' num2str(winSz) 'tPts_' winIndLabel '.png']);
+                    end
         
 
                 otherwise
@@ -326,7 +362,7 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
             
 
 
-        case 'psd_dilate1_actQ'
+        case {'psd_dilate1_actQ' 'psd_original_actQ'}
             %% PSD responses
             hF = figure('WindowStyle','docked');
             ht = tiledlayout(2,3);
@@ -402,10 +438,9 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
             h.patch.FaceAlpha = 0.2;
             h.patch.FaceColor = 'b';
 
-            ax = [ax{:}];
-            axis(ax,'tight');
-            yLim = get(ax,'YLim'); if iscell(yLim); yLim = cat(1,yLim{:}); end; yLim = [min(yLim(:,1)) max(yLim(:,2))];
-            set(ax,'YLim',yLim,'YScale','log');
+            axis([ax{:}],'tight');
+            yLim = get([ax{:}],'YLim'); if iscell(yLim); yLim = cat(1,yLim{:}); end; yLim = [min(yLim(:,1)) max(yLim(:,2))];
+            set([ax{:}],'YLim',yLim,'YScale','log');
             
 
 
@@ -415,20 +450,23 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
             N     = 300;
             Fs    = param.Fs;
             T     = N/Fs;
-            [TW,W,K] = K2W(T,K);
+            [TW,W,K] = K2W(T,K,0);
 
             xLim = xlim;
             yLim = ylim;
-            line(ax(end),mean(xLim) + [-W W],yLim(2).*[1 1],'linestyle','-','color','r','linewidth',2);
+            line(ax{end},mean(xLim) + [-W W],yLim(2).*[1 1],'linestyle','-','color','r','linewidth',2);
             
 
 
 
-            saveas(hF,'smrVesselFullPSD.fig');
-            saveas(hF,'smrVesselFullPSD.png');
+
+            if saveFlag
+                saveas(hF,['smrVesselFullPSD_K' num2str(K) '.fig']);
+                saveas(hF,['smrVesselFullPSD_K' num2str(K) '.png']);
+            end
             
 
-        case 'resp_dilate1_actQ_actSgn'
+        case {'resp_dilate1_actQ_actSgn' 'resp_original_actQ_actSgn'}
             %% Time-domain responses
             hF = figure('WindowStyle','docked');
             ht = tiledlayout(2,3);
@@ -497,8 +535,10 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
 
             set([axArtAct axArtCS axArtLR axVeiAct],'YLim',[-1 1].*max(abs([axArtAct.YLim axArtCS.YLim axArtLR.YLim axVeiAct.YLim])));
 
-            saveas(hF,'smrVesselResponses.fig');
-            saveas(hF,'smrVesselResponses.png');
+            if saveFlag
+                saveas(hF,'smrVesselResponses.fig');
+                saveas(hF,'smrVesselResponses.png');
+            end
 
 
 
@@ -526,8 +566,9 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
                 dt = abs(diff(resp.t,[],3));
                 T = max(resp.t(end,end,:,:,:,:,end));
                 dt = max(dt(:))./T;
-                if dt>1e-5; error('time vector mismatch'); end
-                resp.t = mean(mean(resp.t - onsetList',3),2);
+                if dt>1e-4; error('time vector mismatch'); end
+                % resp.t = mean(mean(resp.t - onsetList',3),2);
+                resp.t = mean(mean(resp.t,3),2);
             else
                 if any(any(diff(resp.t,[],3),3),2); error('time vector mismatch'); end
                 resp.t     = resp.t(:,:,1);        
@@ -537,7 +578,7 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
         end
         if isfield(smr(ind),'f')
             resp.f     = cat(3,smr(ind).f);
-            resp.f(:,:,:,:,end)
+            % resp.f(:,:,:,:,end)
             xVessel =      diff(resp.f(:,:,:,:,end),[],3)   ; xVessel = max(abs(xVessel(:)));
             xFreq   = mean(diff(resp.f             ,[],5),5); xFreq   = max(abs(xFreq(:)  ));
             if xVessel/xFreq>0.005; error('frequency vector mismatch'); end
@@ -554,3 +595,24 @@ function grpAvPlt(roi,subList,acq,task,metric,pltType)
         resp.vecErr = std(resp.vec,[],3,"omitnan")./sqrt(resp.vecN);
 
         resp.info = {'time' '?' 'vessel' '?' 'freq' '?'};
+
+
+    function resp = smrSubject(smr,ind,onsetList)
+
+        subList = unique({smr.sub});
+        resp    = cell(length(subList),1);
+        for S = 1:length(subList)
+            subInd = ismember({smr.sub},subList{S});
+            resp{S} = smrVessel(smr,ind&subInd,onsetList);
+            resp{S}.vec = mean(resp{S}.vec,3,"omitnan");
+        end
+        resp = [resp{:}];
+        vec = cat(3,resp.vecAv);
+        resp(2:end) = [];
+        resp.vec = vec;
+        resp.vecAv = mean(resp.vec,3,"omitnan");
+        resp.vecN  = sum(~isnan(resp.vec),3);
+        resp.vecErr = std(resp.vec,[],3,"omitnan")./sqrt(resp.vecN);
+        resp.sub = subList;
+
+        resp.info = {'time' '?' 'sub' '?' 'freq' '?'};
