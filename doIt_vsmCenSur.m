@@ -499,11 +499,34 @@ for S = 1:size(subList,1)
             mask    = any(cat(4,roi{S}.(acq).(task).vessel.cropMask),4);
             rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
 
-            figure('WindowStyle','docked');
-            t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
-            f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
-            vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
-            imagesc(t,f,vec)
+
+            % figure('WindowStyle','docked');
+            % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.f);
+            % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.COH(:,:,:,:,:,:,:,1));
+            % plot(f,vec)
+
+            % figure('WindowStyle','docked');
+            % t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
+            % t = permute(mean(t,1),[1 3 2]);
+            % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
+            % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
+            % imagesc(t,f,vec)
+
+            % figure('WindowStyle','docked');
+            % spSVim = zeros(size(mask));
+            % [~,b] = min(abs(rCond{S}.(acq).(task).volMt.run(1).svd.f - 0.098));
+            % spSVim(mask) = rCond{S}.(acq).(task).volMt.run(1).svd.spSV(:,:,:,:,b,:,:,1);
+            % imagesc(abs(spSVim))
+            % axis image
+            
+            % figure('WindowStyle','docked');
+            % imagesc(angle(spSVim))
+            % colormap(hsv)
+            % axis image
+
+            % lims = axis;
+            % axis(lims)
+
             
 
         end
@@ -546,10 +569,16 @@ for S = 1:size(subList,1)
 
             % add mt to vessel roi (computed on each run then averaged)
             roi{S}.(acq).(task).vessel = volPsd2roi(rCond{S}.(acq).(task).volMt.run,roi{S}.(acq).(task).vessel);
+
+            % save rCond
+            rCondOrig{S}.(acq).(task).volMt.run = rCond{S}.(acq).(task).volMt.run;
         end
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%
+
+
+
 
 
 return
