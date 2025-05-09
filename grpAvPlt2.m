@@ -780,14 +780,14 @@ function hF = grpAvPlt2(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             end
             if isempty(resp{S}); continue; end
             if contains(resp{S}.metric,'resp_')
-                vec = [];
-                voxDim = 3;
-                vInd = resp{S}.neg;
-                vec(:,1,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
-                vInd = ~resp{S}.neg;
-                vec(:,2,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
-                resp{S}.vec = vec;
-                % resp{S}.vec = permute(resp{S}.vec,[7 1 2 3 5 4 6 8]);
+                % vec = [];
+                % voxDim = 3;
+                % vInd = resp{S}.neg;
+                % vec(:,1,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
+                % vInd = ~resp{S}.neg;
+                % vec(:,2,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
+                % resp{S}.vec = vec;
+                % % resp{S}.vec = permute(resp{S}.vec,[7 1 2 3 5 4 6 8]);
             else
                 if strcmp(avVoxFlag{2},'catVes')
                     % resp{S}.vec = permute(resp{S}.vec,[1 2 6 4 5 3 7 8]);

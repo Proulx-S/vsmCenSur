@@ -716,7 +716,6 @@ hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'
 grpAvRePlt(hFfull,hFmd)
 
 
-grpAvPlt2(roi,subList,acq,task,'cohTrialGram_dilate1','timeFreq','bNa15sec');
 
 return
 
