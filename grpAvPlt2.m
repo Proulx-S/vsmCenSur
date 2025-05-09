@@ -1,4 +1,4 @@
-function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
+function hF = grpAvPlt2(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
     if ~exist('pltType','var'); pltType = []; end
     if ~exist('winIndLabel','var');   winIndLabel = []; end
     if ~exist('avMode','var');       avMode = []; end
@@ -10,17 +10,26 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
     vesselsSub    = {};
     vesselsAcq    = {};
     vesselsTask   = {};
+    K = [];
     for S = 1:size(subList,1)
         if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)); continue; end
         if ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)); continue; end
-        vessels = cat(1,vessels,roi{S}.(acq).(task).vessel);
-        vesselsSub = cat(1,vesselsSub,repmat(subList(S),size(roi{S}.(acq).(task).vessel)));
-        vesselsAcq = cat(1,vesselsAcq,repmat({acq},size(roi{S}.(acq).(task).vessel)));
-        vesselsTask = cat(1,vesselsTask,repmat({task},size(roi{S}.(acq).(task).vessel)));
+        sigInd = [roi{S}.(acq).(task).vessel.anot_sig];
+        vessels = cat(1,vessels,roi{S}.(acq).(task).vessel(sigInd));
+        vesselsSub = cat(1,vesselsSub,repmat(subList(S),size(roi{S}.(acq).(task).vessel(sigInd))));
+        vesselsAcq = cat(1,vesselsAcq,repmat({acq},size(roi{S}.(acq).(task).vessel(sigInd))));
+        vesselsTask = cat(1,vesselsTask,repmat({task},size(roi{S}.(acq).(task).vessel(sigInd))));
         % {roi{S}.(acq).(task).vessel.class}
         % [roi{S}.(acq).(task).vessel.anot_sig]
         % {roi{S}.(acq).(task).vessel.anot_actType}
+        if contains(metric,'coh')
+            K = cat(1,K,[roi{S}.(acq).(task).vessel(1).mt.svdTrialGram.K roi{S}.(acq).(task).vessel(1).mt.svd.K]);
+        else
+            K = cat(1,K,[roi{S}.(acq).(task).vessel(1).mt.psdTrialGram.K roi{S}.(acq).(task).vessel(1).mt.psd.K]);
+        end
     end
+    if nnz(diff(K,[],1)); error('K values are not the same'); end
+    K = K(1,:);
     [vessels.sub]  = deal(vesselsSub{:});  clear vesselsSub
     [vessels.acq]  = deal(vesselsAcq{:});  clear vesselsAcq
     [vessels.task] = deal(vesselsTask{:}); clear vesselsTask
@@ -43,16 +52,27 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
     onsetList = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.onsetList;
 
+    roi{1}.vfMRI_dflt_none.task_50sPrd5sDur.vessel(1).mt.svdTrialGram.K
+    vessels(1).mt.psdTrialGram.K
 
     switch avMode
         case 'avVox-catVes'
             %% Colate data across N vessels -- each vessel is the average of n voxels
-            artAct   = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        );
-            artCS    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'));
-            artLR    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     );
-            artInact = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'non-sig')        );
-            veiAct   = smrVessel(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        );
-            veiInact = smrVessel(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        );
+            artAct   = smrSubject(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        ,'avVox-catVes');
+            artCS    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'),'avVox-catVes');
+            artLR    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     ,'avVox-catVes');
+            veiAct   = smrSubject(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        ,'avVox-catVes');
+            artAct.info{ismember(artAct.info,'sub')} = 'vessel'; artAct.info = strjoin(artAct.info,' x ');
+            artCS.info{ismember(artCS.info,'sub')} = 'vessel'; artCS.info = strjoin(artCS.info,' x ');
+            artLR.info{ismember(artLR.info,'sub')} = 'vessel'; artLR.info = strjoin(artLR.info,' x ');
+            veiAct.info{ismember(veiAct.info,'sub')} = 'vessel'; veiAct.info = strjoin(veiAct.info,' x ');
+
+            % artAct   = smrVessel(smr,ismember({smr.class},'artery') & ~ismember({smr.anot_actType},'non-sig')        );
+            % artCS    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'));
+            % artLR    = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     );
+            % artInact = smrVessel(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'non-sig')        );
+            % veiAct   = smrVessel(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        );
+            % % veiInact = smrVessel(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        );
         
         case 'avVox-catVes-avVes-catSub'
             %% Colate data across N subjects -- each subject is the average of n vessels
@@ -60,7 +80,7 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             artCS    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'center-surround'),'avVox-catVes-avVes');
             artLR    = smrSubject(smr,ismember({smr.class},'artery') &  ismember({smr.anot_actType},'left-right')     ,'avVox-catVes-avVes');
             veiAct   = smrSubject(smr,ismember({smr.class},'vein'  ) & ~ismember({smr.anot_actType},'non-sig')        ,'avVox-catVes-avVes');
-            veiInact = smrSubject(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        ,'avVox-catVes-avVes');
+            % veiInact = smrSubject(smr,ismember({smr.class},'vein'  ) &  ismember({smr.anot_actType},'non-sig')        ,'avVox-catVes-avVes');
 
         case 'catVes-avVox-catSub'
             %% Colate data across N subjects -- each subject is the average of n voxels (pooled across vessels)
@@ -74,7 +94,7 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
     end
 
     switch metric
-        case {'psdTrialGram_dilate1_actQ' 'psdTrialGram_original_actQ'}
+        case {'psdTrialGram_dilate1_actQ' 'psdTrialGram_original_actQ' 'cohTrialGram_dilate1' 'cohTrialGram_original'}
             %% Trial-triggered time-frequency PSD responses
             hF = figure('WindowStyle','docked');
             ht = tiledlayout(2,3);
@@ -201,16 +221,21 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
                     cLim = get([ax{:}],'CLim'); if iscell(cLim); cLim = cat(1,cLim{:}); end; cLim = [min(cLim(:,1)) max(cLim(:,2))];
                     xLim = get([ax{:}],'XLim'); if iscell(xLim); xLim = cat(1,xLim{:}); end; xLim = [min(xLim(:,1)) max(xLim(:,2))];
                     xLim(2) = mean(diff(onsetList));
-                    set([ax{:}],'CLim',cLim,'ColorScale','log','YDir','normal','XLim',xLim);
+                    if contains(metric,'coh')
+                        % cLim(1) = 1/K(1);
+                        set([ax{:}],'CLim',cLim,'ColorScale','linear','YDir','normal','XLim',xLim);
+                    else
+                        set([ax{:}],'CLim',cLim,'ColorScale','log','YDir','normal','XLim',xLim);
+                    end
 
 
-                    K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
+                    % K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
                     param = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.param;
                     winSz = param.dsgn.win(1);
                     N     = length(param.dsgn.onsetList)*winSz;
                     Fs    = param.Fs;
                     T     = N/Fs;
-                    [TW,W,K] = K2W(T,K,0);
+                    [TW,W,K] = K2W(T,K(1),0);
 
                     line(ax{end},x(winInd(1))  .* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
                     line(ax{end},x(winInd(2)).* [1 1],yLim(2)+[-2*W 0],'linestyle','-','color','r','linewidth',2);
@@ -259,7 +284,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
                     
                     title(ax{end},['All Active Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
-                    ylabel('PSD');
+                    if contains(metric,'coh')
+                        ylabel('coherence');
+                    else
+                        ylabel('PSD');
+                    end
                     % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
                     grid on;
                     axis tight;
@@ -286,7 +315,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
                     
                     title(ax{end},['Center-Surround Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
-                    ylabel('PSD');
+                    if contains(metric,'coh')
+                        ylabel('coherence');
+                    else
+                        ylabel('PSD');
+                    end
                     % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
                     grid on;
                     axis tight;
@@ -312,7 +345,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
                     
                     title(ax{end},['Left-Right Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
                     xlabel('Frequency (Hz)');
-                    ylabel('PSD');
+                    if contains(metric,'coh')
+                        ylabel('coherence');
+                    else
+                        ylabel('PSD');
+                    end
                     % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
                     grid on;
                     axis tight;
@@ -338,7 +375,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
                     
                     title(ax{end},['All Active Veins (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'vein'))) ')']);
                     xlabel('Frequency (Hz)');
-                    ylabel('PSD');
+                    if contains(metric,'coh')
+                        ylabel('coherence');
+                    else
+                        ylabel('PSD');
+                    end
                     % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
                     grid on;
                     axis tight;
@@ -350,20 +391,24 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
                     axis([ax{:}],'tight');
                     yLim = get([ax{:}],'YLim'); if iscell(yLim); yLim = cat(1,yLim{:}); end; yLim = [min(yLim(:,1)) max(yLim(:,2))];
-                    set([ax{:}],'YLim',yLim,'YScale','log');
+                    if contains(metric,'coh')
+                        set([ax{:}],'YLim',yLim,'YScale','linear');
+                    else
+                        set([ax{:}],'YLim',yLim,'YScale','log');
+                    end
 
                     legend([hHyper.line hPostHyper.line], {'hyperhemia' 'post-hyperhemia'}, 'Location', 'northeast','AutoUpdate','off');
                     
 
                     
 
-                    K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
+                    % K     = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.K;
                     param = roi{1}.(acq).(task).vessel(1).mt.psdTrialGram.param;
                     winSz = param.dsgn.win(1);
                     N     = length(param.dsgn.onsetList)*winSz;
                     Fs    = param.Fs;
                     T     = N/Fs;
-                    [TW,W,K] = K2W(T,K,0);
+                    [TW,W,K] = K2W(T,K(1),0);
 
                     xLim = xlim;
                     yLim = ylim;
@@ -386,7 +431,7 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             
 
 
-        case {'psd_dilate1_actQ' 'psd_original_actQ'}
+        case {'psd_dilate1_actQ' 'psd_original_actQ' 'coh_dilate1' 'coh_original'}
             %% PSD responses
             hF = figure('WindowStyle','docked');
             ht = tiledlayout(2,3);
@@ -403,7 +448,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             h = shplot2(x, yAv, yEr, ax{end}, '-r'); delete([h.upper h.lower]);
             title(ax{end},['All Active Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
             xlabel('Frequency (Hz)');
-            ylabel('PSD');
+            if contains(metric,'psd')
+                ylabel('PSD');
+            elseif contains(metric,'coh')
+                ylabel('coherence');
+            end
             % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
             grid on;
             axis tight;
@@ -419,7 +468,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             h = shplot2(x, yAv, yEr, ax{end}, '-r'); delete([h.upper h.lower]);
             title(ax{end},['Center-Surround Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
             xlabel('Frequency (Hz)');
-            ylabel('PSD');
+            if contains(metric,'psd')
+                ylabel('PSD');
+            elseif contains(metric,'coh')
+                ylabel('coherence');
+            end
             % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
             grid on;
             axis tight;
@@ -437,7 +490,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             h = shplot2(x, yAv, yEr, ax{end}, '-r'); delete([h.upper h.lower]);
             title(ax{end},['Left-Right Arteries (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'artery'))) ')']);
             xlabel('Frequency (Hz)');
-            ylabel('PSD');
+            if contains(metric,'psd')
+                ylabel('PSD');
+            elseif contains(metric,'coh')
+                ylabel('coherence');
+            end
             % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
             grid on;
             axis tight;
@@ -455,7 +512,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
             h = shplot2(x, yAv, yEr, ax{end}, '-b'); delete([h.upper h.lower]);
             title(ax{end},['All Active Veins (n=' num2str(size(dat.vec,3)) '/' num2str(nnz(ismember({smr.class},'vein'))) ')']);
             xlabel('Frequency (Hz)');
-            ylabel('PSD');
+            if contains(metric,'psd')
+                ylabel('PSD');
+            elseif contains(metric,'coh')
+                ylabel('coherence');
+            end
             % legend([hArtActNeg.line, hArtActPos.line], strcat(artAct.label,'Vox'), 'Location', 'best');
             grid on;
             axis tight;
@@ -485,7 +546,11 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
 
             if saveFlag
-                filename = ['smrVesselFullPSD_K' num2str(K)];
+                if contains(metric,'psd')
+                    filename = ['smrVesselFullPSD_K' num2str(K)];
+                elseif contains(metric,'coh')
+                    filename = ['smrVesselFullCOH_K' num2str(K)];
+                end
                 disp(['Saving ' filename '.fig and ' filename '.png']);
                 saveas(hF,[filename '.fig']);
                 saveas(hF,[filename '.png']);
@@ -587,7 +652,8 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
 
     function smr = smrVessel(smr,ind,avMode)
-        if isempty(avMode); avMode = 'avVox'; end
+        if ~exist('avMode','var'); avMode = ''; end
+        if isempty(avMode);        avMode = 'avVox'; end
         smr = smr(ind);
         if isempty(smr); return; end
 
@@ -601,11 +667,19 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
         % end
         % resp.vec = cat(find(voxDim),resp.vec{:});
         vec = {smr.vec};
-        neg = {smr.vec};
+        neg = {smr.neg};
         if strcmp(avMode,'avVox')
             for r = 1:length(vec)
-                vec{r} = mean(vec{r},find(voxDim));
-                neg{r} = mean(neg{r},find(voxDim));
+                if contains(smr(r).metric,'resp_')
+                    vec{r} = cat(2,...
+                    mean(vec{r}(:,:,neg{r}(:)),find(voxDim)),...
+                    mean(vec{r}(:,:,~neg{r}(:)),find(voxDim))...
+                    )
+                    neg{r} = mean(neg{r},find(voxDim));
+                else
+                    vec{r} = mean(vec{r},find(voxDim));
+                    neg{r} = mean(neg{r},find(voxDim));
+                end
             end
         end
         ind = ~cellfun('isempty',vec);
@@ -620,10 +694,12 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
         class        = {smr.class};
         anot_actType = {smr.anot_actType};
+        sub          = {smr.sub};
 
         
         smr = smr(1);
         smr.vec    = vec;
+        smr.neg    = neg;
         smr.vecNeg = neg;
         smr.nVox = nVox;
         smr.nVoxNeg = nVoxNeg;
@@ -631,6 +707,19 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
         smr.nVoxOrig     = nVoxOrig;
         smr.class        = permute(class,[1 3 4 5 6 7 8 2]);
         smr.anot_actType = permute(anot_actType,[1 3 4 5 6 7 8 2]);
+        smr.sub          = permute(sub,[1 3 4 5 6 7 8 2]);
+
+        if strcmp(avMode,'avVox')
+            smr.info = strsplit(smr.info,' x ');
+            avDim = find(ismember(smr.info,'vox'));
+            smr.info{avDim} = 'vessel';
+            smr.info = strjoin(smr.info,' x ');
+            
+            sz = repmat({'1'},1,length(size(smr.vec))); sz{avDim} = ':'; sz = strjoin(sz,',');
+            okInd = eval(['~isnan(smr.vec(' sz '))']);
+            smr.vecAv = mean(smr.vec,avDim,"omitnan");
+            smr.vecEr = std(smr.vec,[],avDim,"omitnan")./sqrt(nnz(okInd));
+        end
 
 
 
@@ -677,21 +766,38 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
 
     function resp = smrSubject(smr,ind,avMode)
         if isempty(avMode); avMode = 'catVes-avVox'; end
-
+        avVoxFlag = strsplit(avMode,'-');
         subList = unique({smr.sub});
         resp    = cell(length(subList),1);
         for S = 1:length(subList)
             subInd = ismember({smr.sub},subList{S});
-            resp{S} = smrVessel(smr,ind&subInd,'catVox');
+            switch avVoxFlag{1}
+                case 'avVox'
+                    resp{S} = smrVessel(smr,ind&subInd,'avVox');
+                    % resp{S}
+                otherwise
+                    resp{S} = smrVessel(smr,ind&subInd,'catVox');
+            end
             if isempty(resp{S}); continue; end
             if contains(resp{S}.metric,'resp_')
+                vec = [];
                 voxDim = 3;
-                resp{S}.vec = mean(resp{S}.vec,voxDim,"omitnan");
+                vInd = resp{S}.neg;
+                vec(:,1,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
+                vInd = ~resp{S}.neg;
+                vec(:,2,:) = mean(resp{S}.vec(:,:,vInd),voxDim,"omitnan");
+                resp{S}.vec = vec;
                 % resp{S}.vec = permute(resp{S}.vec,[7 1 2 3 5 4 6 8]);
             else
-                voxDim = 6;
-                resp{S}.vec = mean(resp{S}.vec,voxDim,"omitnan");
-                resp{S}.vec = permute(resp{S}.vec,[7 1 2 3 5 4 6 8]);
+                if strcmp(avVoxFlag{2},'catVes')
+                    % resp{S}.vec = permute(resp{S}.vec,[1 2 6 4 5 3 7 8]);
+                    resp{S}.vec = permute(resp{S}.vec,[7 1 6 3 5 4 2 8]);
+
+                else
+                    voxDim = 6;
+                    resp{S}.vec = mean(resp{S}.vec,voxDim,"omitnan");
+                    resp{S}.vec = permute(resp{S}.vec,[7 1 2 3 5 4 6 8]);
+                end
             end
         end
         subInd = ~cellfun('isempty',resp);
@@ -709,4 +815,4 @@ function hF = grpAvPlt(roi,subList,acq,task,metric,pltType,winIndLabel,avMode)
         if isfield(resp,'t') && ~contains(resp.metric,'resp_')
             resp.t   = permute(resp.t,[7 1 3 5 4 6 2 8])
         end
-        resp.info = {'time' '???' 'sub' '???' 'freq' '???'};
+        resp.info = {'time' 'compartment' 'sub' '???' 'freq' '???'};

@@ -489,10 +489,10 @@ for S = 1:size(subList,1)
 
             % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
 
-            K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
+            K   = [1 4 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
             W   = [];
-            win = [25 0.840]; % in seconds [lenght, step]
-            skipSVD = 0;
+            win = [47.88/2 0.840]; % in seconds [lenght, step]
+            skipSVD = 1;
             skipPSD = 0;
             dsgn    = rCond{S}.(acq).(task).dsgn;
             % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
@@ -540,7 +540,7 @@ end
 % Save all
 winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
 K;
-filename = ['results20250505_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
+filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
 disp(['saving ' filename])
 save(filename,'-v7.3')
 else
@@ -548,7 +548,8 @@ else
 % filename = 'results20250505_K4-6_winSz19tPts.mat';
 % filename = 'results20250505_K3-5_winSz24tPts.mat';
 % filename = 'results20250505_K3-4_winSz26tPts.mat';
-filename = 'results20250505_K3-5_winSz30tPts.mat';
+% filename = 'results20250505_K3-5_winSz30tPts.mat';
+filename = 'results20250508_K4-5_winSz28tPts.mat';
 disp(['loading ' filename])
 load(filename)
 end
@@ -625,6 +626,8 @@ threshOL(hIol,'actQ_dilate1',0);
 % threshOL(hIol,'actQ_crop',0);
 
 % adjPoly(hIol,'on');
+% adjPoly(findobj([tiling.sub.right.hA.Children],'Type','image'),'original','k',-1);
+% adjPoly(findobj([tiling.sub.right.hA.Children],'Type','image'),'dilate1','w',1);
 adjPoly(hIol,'original','k',-1);
 adjPoly(hIol,'dilate1','w',1);
 % adjPoly(hIol,'dilate1p5','w',1);
@@ -648,6 +651,9 @@ adjPoly(hIol,'dilate1','w',1);
                     saveas(hF{1}{1},[subList{S},'_resp.fig']);
                     saveas(hF{2}{1},[subList{S},'_psd.fig']);
                     saveas(hF{3}{1},[subList{S},'_psdTrialGram.fig']);
+                    saveas(hF{4}{1},[subList{S},'_coh.fig']);
+                    saveas(hF{4}{2},[subList{S},'_cohTrialGram.fig']);
+                    
                 end
                 if printIt
                     print(tiling.main.hF, [subList{S}, '_UL.svg'], '-dsvg', '-painters');
@@ -655,6 +661,10 @@ adjPoly(hIol,'dilate1','w',1);
                     print(hF{1}{1}, [subList{S}, '_resp.svg'], '-dsvg', '-painters');
                     print(hF{2}{1}, [subList{S}, '_psd.svg'], '-dsvg', '-painters');
                     print(hF{3}{1}, [subList{S}, '_psdTrialGram.svg'], '-dsvg', '-painters');
+                    print(hF{4}{1}, [subList{S}, '_coh.svg'], '-dsvg', '-painters');
+                    print(hF{4}{2}, [subList{S}, '_cohTrialGram.svg'], '-dsvg', '-painters');
+                    hF = [hF{:}];
+                    close([tiling.main.hF hFol hF{:}])
                 end
             end
 
@@ -672,6 +682,10 @@ for m = 1:length(roi{S}.(acq).(task).vessel(1).smr)
     metricList{m} = roi{S}.(acq).(task).vessel(1).smr{m}.metric;
 end
 
+save tmp -v7.3
+return
+load tmp
+
 % grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ' ,'timeFreq','bNa15sec');
 % grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
 
@@ -684,85 +698,25 @@ end
 % grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec');
 % hFmd = grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq','bNa15sec');
 
-        %  grpAvPlt2(roi,subList,acq,task,'resp_original_actQ_actSgn' ,[]        ,[]        );
-hFfull = grpAvPlt2(roi,subList,acq,task,'psd_original_actQ'         ,[]        ,[]        );
-         grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
-hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','freq'    ,'bNa15sec');
+%          grpAvPlt2(roi,subList,acq,task,'resp_dilate1_actQ_actSgn' ,[]        ,[]        );
+% hFfull = grpAvPlt2(roi,subList,acq,task,'psd_dilate1_actQ'         ,[]        ,[]        );
+%          grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec');
+% hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'bNa15sec');
 
-artFull  = hFfull.Children.Children(4); artFull  = artFull.Children;
-veinFull = hFfull.Children.Children(1); veinFull = veinFull.Children([2 3]);
-artMd    = hFmd.Children.Children(5); artMd    = artMd.Children([1 2]);
-veinMd   = hFmd.Children.Children(2); veinMd   = veinMd.Children([2 3]);
+grpAvPlt2(roi,subList,acq,task,'resp_dilate1_actQ_actSgn' ,[]        ,[]        ,'avVox-catVes');
 
-artCSFull  = hFfull.Children.Children(3); artCSFull  = artCSFull.Children;
-artLRFull  = hFfull.Children.Children(2); artLRFull  = artLRFull.Children;
-artCSMd    = hFmd.Children.Children(4); artCSMd    = artCSMd.Children([1 2]);
-artLRMd    = hFmd.Children.Children(3); artLRMd    = artLRMd.Children([1 2]);
+hFfull = grpAvPlt2(roi,subList,acq,task,'coh_dilate1'         ,[]        ,[]        ,'avVox-catVes');
+         grpAvPlt2(roi,subList,acq,task,'cohTrialGram_dilate1','timeFreq','bNa15sec','avVox-catVes');
+hFmd   = grpAvPlt2(roi,subList,acq,task,'cohTrialGram_dilate1','freq'    ,'bNa15sec','avVox-catVes');
+grpAvRePlt(hFfull,hFmd)
 
-
-% axArtMd  = hFmd.Children.Children(5);
-% axVeinMd = hFmd.Children.Children(2);
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(artFull,ax);
-copyobj(veinFull,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'All Arteries vs all Veins');
-saveas(gcf,'allArteriesVsAllVeins.fig');
-print(gcf, 'allArteriesVsAllVeins.svg', '-dsvg', '-painters');
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-hArt = copyobj(artMd,ax); hArt(1).Color = 'r';
-hVei = copyobj(veinMd,ax); hVei(1).Color = 'b';
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'All Arteries MD vs all Veins MD');
-saveas(gcf,'allArteriesVsAllVeins_PostStimPSD.png');
-print(gcf, 'allArteriesVsAllVeins_PostStimPSD.svg', '-dsvg', '-painters');
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(artFull,ax);
-copyobj(artMd,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'All Arteries, Full vs MD');
-saveas(gcf,'allArteries_FullVsMD.png');
-print(gcf, 'allArteries_FullVsMD.svg', '-dsvg', '-painters');
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(veinFull,ax);
-copyobj(veinMd,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'All veins, Full vs MD');
-saveas(gcf,'allVeins_FullVsMD.png');
-print(gcf, 'allVeins_FullVsMD.svg', '-dsvg', '-painters');
+hFfull = grpAvPlt2(roi,subList,acq,task,'psd_dilate1_actQ'         ,[]        ,[]        ,'avVox-catVes');
+         grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec','avVox-catVes');
+hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'bNa15sec','avVox-catVes');
+grpAvRePlt(hFfull,hFmd)
 
 
-
-
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(artCSFull,ax);
-copyobj(artCSMd,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'Center-Surround Arteries, Full vs MD');
-saveas(gcf,'allArteries_CS_FullVsMD.png');
-print(gcf, 'allArteries_CS_FullVsMD.svg', '-dsvg', '-painters');
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(artLRFull,ax);
-copyobj(artLRMd,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'Left-Right Arteries, Full vs MD');
-saveas(gcf,'allArteries_LR_FullVsMD.png');
-print(gcf, 'allArteries_LR_FullVsMD.svg', '-dsvg', '-painters');
-
-
-
+grpAvPlt2(roi,subList,acq,task,'cohTrialGram_dilate1','timeFreq','bNa15sec');
 
 return
 
