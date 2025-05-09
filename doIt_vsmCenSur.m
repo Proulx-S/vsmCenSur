@@ -516,7 +516,8 @@ else
 % Load all
 % filename = 'results20250505_K4-6_winSz19tPts.mat';
 % filename = 'results20250505_K3-5_winSz24tPts.mat';
-filename = 'results20250505_K3-4_winSz26tPts.mat';
+% filename = 'results20250505_K3-4_winSz26tPts.mat';
+filename = 'results20250505_K3-5_winSz30tPts.mat';
 disp(['loading ' filename])
 load(filename)
 end
@@ -545,19 +546,19 @@ end
 
 return
 
-% summarize rois (vox2roi)
-vessels = roi{S}.(acq).(task).vessel;
-ismember({vessels.class},'artery')
-ismember({vessels.class},'vein')
-vessels.anot_actType
-vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
-roi{S}.(acq).(task).vessels = mergeRoi2(vessels);
+% % summarize rois (vox2roi)
+% vessels = roi{S}.(acq).(task).vessel;
+% ismember({vessels.class},'artery')
+% ismember({vessels.class},'vein')
+% vessels.anot_actType
+% vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
+% roi{S}.(acq).(task).vessels = mergeRoi2(vessels);
 
 
 %% Summarize roi
 
-plotIt  = 0;
-saveIt  = 1;
+plotIt  = 1;
+saveIt  = 0;
 printIt = 1;
 if plotIt
     close all
@@ -578,12 +579,31 @@ for S = 1:size(subList,1)
                 tiling = plotUL3(roi{S}.(acq).(task).vessel,[],[],4);
                 hF = {}; hA = {};
                 [hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+% threshOL(hIol,'on');
+% threshOL(hIol,'off');
+% threshOL(hIol,'actQ_original',0);
+threshOL(hIol,'actQ_dilate1',0);
+% threshOL(hIol,'actQ_dilate1p5',0);
+% threshOL(hIol,'actQ_dilate2',0);
+% threshOL(hIol,'actQ_crop',0);
+
+% adjPoly(hIol,'on');
+adjPoly(hIol,'original','k',-1);
+adjPoly(hIol,'dilate1','w',1);
+% adjPoly(hIol,'dilate1p5','w',1);
+% adjPoly(hIol,'dilate2','w',1);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psd_original_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_original_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psd_original_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psdTrialGram_original_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+
+                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                
                 
                 if saveIt
                     saveas(tiling.main.hF,[subList{S},'_UL.fig']);
@@ -603,7 +623,7 @@ for S = 1:size(subList,1)
 
             % get data
             % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ' },roi{S}.(acq).(task).vessel);
-            roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
+            roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
         end
     end
 end
@@ -614,21 +634,22 @@ for m = 1:length(roi{S}.(acq).(task).vessel(1).smr)
     metricList{m} = roi{S}.(acq).(task).vessel(1).smr{m}.metric;
 end
 
-grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ' ,'timeFreq','bNa15sec');
-grpAvPlt(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
+% grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ' ,'timeFreq','bNa15sec');
+% grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
 
-grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ' ,'freq','bNa15sec');
-grpAvPlt(roi,subList,acq,task,'psdTrialGram_original_actQ','freq','bNa15sec');
+% grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ' ,'freq','bNa15sec');
+% grpAvPlt(roi,subList,acq,task,'psdTrialGram_original_actQ','freq','bNa15sec');
 
 
 % grpAvPlt(roi,subList,acq,task,'resp_dilate1_actQ_actSgn');
 % hFfull = grpAvPlt(roi,subList,acq,task,'psd_dilate1_actQ');
 % grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec');
 % hFmd = grpAvPlt(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq','bNa15sec');
-grpAvPlt(roi,subList,acq,task,'resp_original_actQ_actSgn');
-hFfull = grpAvPlt(roi,subList,acq,task,'psd_original_actQ');
-grpAvPlt(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
-hFmd = grpAvPlt(roi,subList,acq,task,'psdTrialGram_original_actQ','freq','bNa15sec');
+
+        %  grpAvPlt2(roi,subList,acq,task,'resp_original_actQ_actSgn' ,[]        ,[]        );
+hFfull = grpAvPlt2(roi,subList,acq,task,'psd_original_actQ'         ,[]        ,[]        );
+         grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','timeFreq','bNa15sec');
+hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_original_actQ','freq'    ,'bNa15sec');
 
 artFull  = hFfull.Children.Children(4); artFull  = artFull.Children;
 veinFull = hFfull.Children.Children(1); veinFull = veinFull.Children([2 3]);
@@ -650,6 +671,8 @@ copyobj(artFull,ax);
 copyobj(veinFull,ax);
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'All Arteries vs all Veins');
+saveas(gcf,'allArteriesVsAllVeins.fig');
+print(gcf, 'allArteriesVsAllVeins.svg', '-dsvg', '-painters');
 
 figure('WindowStyle','docked');
 ax = axes('Parent',gcf);
@@ -657,7 +680,8 @@ hArt = copyobj(artMd,ax); hArt(1).Color = 'r';
 hVei = copyobj(veinMd,ax); hVei(1).Color = 'b';
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'All Arteries MD vs all Veins MD');
-
+saveas(gcf,'allArteriesVsAllVeins_PostStimPSD.png');
+print(gcf, 'allArteriesVsAllVeins_PostStimPSD.svg', '-dsvg', '-painters');
 
 figure('WindowStyle','docked');
 ax = axes('Parent',gcf);
@@ -665,6 +689,8 @@ copyobj(artFull,ax);
 copyobj(artMd,ax);
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'All Arteries, Full vs MD');
+saveas(gcf,'allArteries_FullVsMD.png');
+print(gcf, 'allArteries_FullVsMD.svg', '-dsvg', '-painters');
 
 figure('WindowStyle','docked');
 ax = axes('Parent',gcf);
@@ -672,14 +698,9 @@ copyobj(veinFull,ax);
 copyobj(veinMd,ax);
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'All veins, Full vs MD');
+saveas(gcf,'allVeins_FullVsMD.png');
+print(gcf, 'allVeins_FullVsMD.svg', '-dsvg', '-painters');
 
-
-figure('WindowStyle','docked');
-ax = axes('Parent',gcf);
-copyobj(artFull,ax);
-copyobj(artMd,ax);
-set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
-title(ax,'All Arteries, Full vs MD');
 
 
 
@@ -690,6 +711,8 @@ copyobj(artCSFull,ax);
 copyobj(artCSMd,ax);
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'Center-Surround Arteries, Full vs MD');
+saveas(gcf,'allArteries_CS_FullVsMD.png');
+print(gcf, 'allArteries_CS_FullVsMD.svg', '-dsvg', '-painters');
 
 figure('WindowStyle','docked');
 ax = axes('Parent',gcf);
@@ -697,6 +720,8 @@ copyobj(artLRFull,ax);
 copyobj(artLRMd,ax);
 set(ax,'YScale','log','XGrid','on','YGrid','on','XMinorGrid','on','YMinorGrid','on');
 title(ax,'Left-Right Arteries, Full vs MD');
+saveas(gcf,'allArteries_LR_FullVsMD.png');
+print(gcf, 'allArteries_LR_FullVsMD.svg', '-dsvg', '-painters');
 
 
 
@@ -836,7 +861,7 @@ S=8; A=1; T=1;
 threshOL(hIO{S}{A}{T},'on');
 threshOL(hIO{S}{A}{T},'off');
 threshOL(hIO{S}{A}{T},'actQ_original',0);
-threshOL(hIO{S}{A}{T},'actQ_dilate1',0);
+threshOL(hIol{S}{A}{T},'actQ_dilate1',0);
 threshOL(hIO{S}{A}{T},'actQ_dilate1p5',0);
 threshOL(hIO{S}{A}{T},'actQ_dilate2',0);
 threshOL(hIO{S}{A}{T},'actQ_crop',1);
