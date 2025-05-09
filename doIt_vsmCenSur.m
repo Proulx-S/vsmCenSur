@@ -492,12 +492,20 @@ for S = 1:size(subList,1)
             K   = [1 3 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
             W   = [];
             win = [25 0.840]; % in seconds [lenght, step]
-            skipSVD = 1;
+            skipSVD = 0;
             skipPSD = 0;
             dsgn    = rCond{S}.(acq).(task).dsgn;
             % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
             mask    = any(cat(4,roi{S}.(acq).(task).vessel.cropMask),4);
             rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
+
+            figure('WindowStyle','docked');
+            t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
+            f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
+            vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
+            imagesc(t,f,vec)
+            
+
         end
     end
 end
@@ -558,7 +566,7 @@ return
 %% Summarize roi
 
 plotIt  = 1;
-saveIt  = 0;
+saveIt  = 1;
 printIt = 1;
 if plotIt
     close all
@@ -623,7 +631,8 @@ adjPoly(hIol,'dilate1','w',1);
 
             % get data
             % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ' },roi{S}.(acq).(task).vessel);
-            roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
+            % roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
+            roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' 'psd_dilate1_actQ' 'psdTrialGram_dilate1_actQ' 'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel);
         end
     end
 end
