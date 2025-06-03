@@ -79,7 +79,7 @@ end
 %% %%%%%%%%%%%%%%%%%%
 
 
-if 0
+if 1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load preprocessed data
@@ -99,7 +99,7 @@ disp('Subjects:')
 disp(char(subList))
 disp('---------')
 % reorderAcq = [2 4 3 1];
-reorderAcq = [3 6 5];
+reorderAcq = [3 6 5 1];
 acqList = index.info.acqList(reorderAcq);
 % acqList = {}; for S = 1:length(rCond); acqList = cat(1,acqList,fields(rCond{S})); end; acqList = unique(acqList);
 % acqList(ismember(acqList,{'phs' 'QA'})) = []; acqList = acqList(reorderAcq);
@@ -183,7 +183,7 @@ for S = 1:length(rCond)
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
 
         %%%% Intereactively define frame/run grouping
-        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId,hFig] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);
+        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId,hFig] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);        
 
         %%%% Create new censor file based on clustering
         fCnsr_mainClust = replace(fClustId,'ClstIdx.1D',''); [fCnsr_mainClust,b,~] = fileparts(fCnsr_mainClust); fCnsr_mainClust = fullfile(fCnsr_mainClust,strcat('censorMainClst_',b,'.csv'));
@@ -263,11 +263,20 @@ verboseThis = 0;
 %%%
 for S = 1:size(subList,1)
     for A = 1:length(acqList)
+        % if A==2 || A==3; 
+        %     forceThis   = 1;
+        %     verboseThis = 1;
+        % else
+        %     forceThis   = 0;
+        %     verboseThis = 0;
+        % end
+
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         for T = 1:length(taskList)
             task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
 
             [volResp,volRespCmplx,volRespCmplxMag1] = getVolResp2(rCond{S}.(acq).(task),[],[],[],forceThis,verboseThis);
+            
             
             %%% get nTrial
             volResp.respCat.xMat.nTrial = sum(volResp.respCat.xMat.mat(~volResp.respCat.xMat.cnsr,volResp.respCat.xMat.nPoly+1:end),1);
@@ -283,6 +292,47 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+return
+
+fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
+fAfni = fullfile(fAfni,'afni_bold.sh');
+delete(fAfni);
+fid = fopen(fAfni,'w');
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},'bold_dflt_none'); continue; end
+    curTaskList = fields(rCond{S}.bold_dflt_none); curTaskList = curTaskList(contains(curTaskList,'task_'));
+    for T = 1:length(curTaskList)
+        cmd = {src.afni};
+        cmd{end+1} = ['afni \'                                                                                                            ];
+        cmd{end+1} = [        char(rCond{S}.bold_dflt_none.(curTaskList{T}).volResp.mag.respCat.stats.fRespOnPoly0Base)                     ' \'];
+        cmd{end+1} = [replace(char(rCond{S}.bold_dflt_none.(curTaskList{T}).volResp.mag.respCat.fStat)                  ,'_stats','_stats+orig')];
+
+        nRun = size(rCond{S}.bold_dflt_none.(curTaskList{T}).fPreprocList,1);
+        fprintf(fid,'# Subject: %s, Task: %s, Number of runs: %d\n', subList{S}, curTaskList{T}, nRun);
+        fprintf(fid,'%s\n\n',strjoin(cmd,newline));
+    end
+end
+fclose(fid);
+fAfni
+
+
+
+
+
+
+% S = 10;
+% disp(strjoin(...
+% [rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.mag.respRun.stats.fPoly0Base
+% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fResp(:,:,3)
+% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fPoly0Base(:,3)
+% {[char(rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fStat) '+orig']}],...
+%     ' '))
+
+
+% rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun
+
+% rCond{S}.(acqList{1}).(taskList{1}).volResp.mag.respCat.xMat.nTrial'
 
 
 
