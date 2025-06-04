@@ -293,8 +293,11 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-return
 
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Explore maps with afni
+%%%%%%%%%%%%%%%%%%%%%%%%%
 fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
 fAfni = fullfile(fAfni,'afni_bold.sh');
 delete(fAfni);
@@ -318,9 +321,6 @@ fAfni
 
 
 
-
-
-
 % S = 10;
 % disp(strjoin(...
 % [rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.mag.respRun.stats.fPoly0Base
@@ -334,7 +334,70 @@ fAfni
 
 % rCond{S}.(acqList{1}).(taskList{1}).volResp.mag.respCat.xMat.nTrial'
 
+%% %%%%%%%%%%%%%%%%%%%%%%
+end
 
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Time-frequency analysis -- of BOLD data
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    acq  = 'bold_dflt_none'; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+    for T = 1:length(taskList)
+        task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+        disp('--------------------------------');
+        disp('--------------------------------');
+        disp(['SUB ' subList{S} ' ACQ ' acq ' TASK ' task]);
+        disp('--------------------------------');
+        disp('--------------------------------');
+
+        % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
+
+        K   = [1 4 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
+        W   = [];
+        win = [47.88/2 0.840]; % in seconds [lenght, step]
+        skipSVD = 0;
+        skipPSD = 0;
+        dsgn    = rCond{S}.(acq).(task).dsgn;
+        % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
+        mask    = char(rCond{S}.(acq).(task).volResp.mag.respCat.fMask);
+        rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
+rCond_s1_bold = rCond{S}.(acq).(task);
+save rCond_s1_bold rCond_s1_bold -v7.3
+
+        % figure('WindowStyle','docked');
+        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.f);
+        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.COH(:,:,:,:,:,:,:,1));
+        % plot(f,vec)
+
+        % figure('WindowStyle','docked');
+        % t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
+        % t = permute(mean(t,1),[1 3 2]);
+        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
+        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
+        % imagesc(t,f,vec)
+
+        % figure('WindowStyle','docked');
+        % mask = MRIread(mask); mask = logical(mask.vol);
+        % spSVim = zeros(size(mask));
+        % [~,b] = min(abs(rCond{S}.(acq).(task).volMt.run(1).svd.f - 0.0209));
+        % spSVim(mask) = rCond{S}.(acq).(task).volMt.run(1).svd.spSV(:,:,:,:,b,:,:,1);
+        % imagesc(abs(spSVim(:,:,1)))
+        % axis image
+        
+        % figure('WindowStyle','docked');
+        % imagesc(angle(spSVim))
+        % colormap(hsv)
+        % axis image
+
+        % lims = axis;
+        % axis(lims)
+
+        
+
+    end
+end
 
 
 %%%%%%%%%%%%%%%
@@ -343,10 +406,11 @@ fAfni
 roi = cell(size(subList));
 for S = 1:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
-    for A = 1%:length(acqList)
-        acq  = acqList{A};
+    % for A = 1:length(acqList)
+        % acq  = acqList{A};
+        acq  = 'vfMRI_dflt_none';
         if ~isfield(rCond{S},acq)          ; continue; end
-        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        % if contains(acq,{'bold' 'vfMRIpc'}); continue; end
         for T = 1%:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
@@ -516,11 +580,11 @@ for S = 1:size(subList,1)
             % {roi{S}.(acq).(task).vessel.class}'...
             % {roi{S}.(acq).(task).vessel.anot_sig}']
         end
-    end
+    % end
 end
 %% %%%%%%%%%%%%
 
-
+return
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
