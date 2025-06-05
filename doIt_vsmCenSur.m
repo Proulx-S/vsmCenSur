@@ -337,7 +337,7 @@ fAfni
 %% %%%%%%%%%%%%%%%%%%%%%%
 end
 
-return
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis -- of BOLD data
@@ -363,8 +363,9 @@ for S = 1:size(subList,1)
         % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
         mask    = char(rCond{S}.(acq).(task).volResp.mag.respCat.fMask);
         rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
-rCond_s1_bold = rCond{S}.(acq).(task);
-save rCond_s1_bold rCond_s1_bold -v7.3
+
+% rCond_s1_bold = rCond{S}.(acq).(task);
+% save rCond_s1_bold rCond_s1_bold -v7.3
 
         % figure('WindowStyle','docked');
         % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.f);
@@ -398,6 +399,7 @@ save rCond_s1_bold rCond_s1_bold -v7.3
 
     end
 end
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %%%%%%%%%%%%%%%
@@ -406,12 +408,12 @@ end
 roi = cell(size(subList));
 for S = 1:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
-    % for A = 1:length(acqList)
-        % acq  = acqList{A};
-        acq  = 'vfMRI_dflt_none';
-        if ~isfield(rCond{S},acq)          ; continue; end
-        % if contains(acq,{'bold' 'vfMRIpc'}); continue; end
-        for T = 1%:length(taskList)
+    for A = 1:length(acqList)
+        acq  = acqList{A};
+        % acq  = 'vfMRI_dflt_none';
+        if ~isfield(rCond{S},acq)  ; continue; end
+        if ~contains(acq,{'vfMRI'}); continue; end
+        for T = 1:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
 
@@ -580,7 +582,7 @@ for S = 1:size(subList,1)
             % {roi{S}.(acq).(task).vessel.class}'...
             % {roi{S}.(acq).(task).vessel.anot_sig}']
         end
-    % end
+    end
 end
 %% %%%%%%%%%%%%
 
