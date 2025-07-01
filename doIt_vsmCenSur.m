@@ -1,7 +1,8 @@
 clear all
 close all
 
-dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
+% dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
+dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile20250630.mat'; % after reprocessing of vfMRIpc
 %%%%%%%%%%%%%%%%%%%%%
 %% Set up environment
 %%%%%%%%%%%%%%%%%%%%%
@@ -182,8 +183,15 @@ for S = 1:length(rCond)
         if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
         taskListTmp = fields(rCond{S}.(acq)); taskListTmp = taskListTmp(contains(taskListTmp,'task_'));
 
+
+        % if contains(acq,'vfMRIpc')
+        %     forceThis = 2;
+        % else
+        %     forceThis = 0;
+        % end
         %%%% Intereactively define frame/run grouping
-        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId,hFig] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis); close(hFig);        
+        [kI,k,rCond{S}.(acq).QA.fXCorrDendro,fClustId,mainClustId,hFig] = QAdendrogram(rCond{S}.(acq).QA.fXCorr,forceThis,verboseThis);
+        if verboseThis<2; close(hFig); end
 
         %%%% Create new censor file based on clustering
         fCnsr_mainClust = replace(fClustId,'ClstIdx.1D',''); [fCnsr_mainClust,b,~] = fileparts(fCnsr_mainClust); fCnsr_mainClust = fullfile(fCnsr_mainClust,strcat('censorMainClst_',b,'.csv'));
@@ -240,14 +248,15 @@ verboseThis = 0;
 %% Anatomical processing
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-for A = 1%:length(acqList)
+% for A = 1%:length(acqList)
+    A = find(contains(acqList,'vfMRI_'));
     for S = 1:size(subList,1)
-        if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
-        if contains(acqList{A},{'bold'}); continue; end
-        % if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
+        % if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
+        % if contains(acqList{A},{'bold'}); continue; end
+        if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
         [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
     end
-end
+% end
 %% %%%%%%%%%%%%%%%%%%%%%
 
 
@@ -269,6 +278,12 @@ for S = 1:size(subList,1)
         % else
         %     forceThis   = 0;
         %     verboseThis = 0;
+        % end
+
+        % if contains(acqList{A},'vfMRIpc')
+        %     forceThis = 1;
+        % else
+        %     forceThis = 0;
         % end
 
         acq  = acqList{A}; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
@@ -293,25 +308,34 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+return
 
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore maps with afni
 %%%%%%%%%%%%%%%%%%%%%%%%%
+% acq = 'bold_dflt_none';
+acq = 'vfMRIpc_dflt_pcVenc7ap';  
 fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
-fAfni = fullfile(fAfni,'afni_bold.sh');
+fAfni = fullfile(fAfni,'afni_vfMRIpc7ap.sh');
 delete(fAfni);
 fid = fopen(fAfni,'w');
 for S = 1:size(subList,1)
-    if ~isfield(rCond{S},'bold_dflt_none'); continue; end
-    curTaskList = fields(rCond{S}.bold_dflt_none); curTaskList = curTaskList(contains(curTaskList,'task_'));
+    if ~isfield(rCond{S},acq); continue; end
+    curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,'task_'));
+    curTaskList(contains(curTaskList,'fixOnly')) = [];
     for T = 1:length(curTaskList)
         cmd = {src.afni};
-        cmd{end+1} = ['afni \'                                                                                                            ];
-        cmd{end+1} = [        char(rCond{S}.bold_dflt_none.(curTaskList{T}).volResp.mag.respCat.stats.fRespOnPoly0Base)                     ' \'];
-        cmd{end+1} = [replace(char(rCond{S}.bold_dflt_none.(curTaskList{T}).volResp.mag.respCat.fStat)                  ,'_stats','_stats+orig')];
+        cmd{end+1} = ['afni \'                                                                                                             ];
+        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.stats.fRespOnPoly0Base)                          ' \'];
+        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.fStat)                  ,'_stats','_stats+orig') ' \'];
+        if isfield(rCond{S},acq)
+        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.stats.fResp{3})                            ' \'];
+        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.fStat)            ,'_stats','_stats+orig')     ];
+        end
+        
 
-        nRun = size(rCond{S}.bold_dflt_none.(curTaskList{T}).fPreprocList,1);
+        nRun = size(rCond{S}.(acq).(curTaskList{T}).fPreprocList,1);
         fprintf(fid,'# Subject: %s, Task: %s, Number of runs: %d\n', subList{S}, curTaskList{T}, nRun);
         fprintf(fid,'%s\n\n',strjoin(cmd,newline));
     end
@@ -408,6 +432,9 @@ end
 roi = cell(size(subList));
 for S = 1:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
+    taskTmp = fields(rCond{S}.vfMRI_dflt_none); taskTmp = taskTmp(contains(taskTmp,'task_'));
+    label = rCond{S}.vfMRI_dflt_none.(taskTmp{1}).volAnat.label.calcarineVessel;
+            
     for A = 1:length(acqList)
         acq  = acqList{A};
         % acq  = 'vfMRI_dflt_none';
@@ -418,7 +445,6 @@ for S = 1:size(subList,1)
             if ~isfield(rCond{S}.(acq),task); continue; end
 
             % rebuild roi but with functional data (resp and act)
-            label = rCond{S}.(acq).(task).volAnat.label.calcarineVessel;
             [~,b,~] = fileparts(label.fBaseList);
             imField = {
                 'base'
@@ -435,8 +461,15 @@ for S = 1:size(subList,1)
                 };
             fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj); coefAdjFlag = 1;
             if isempty(fCondCoef); fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef); coefAdjFlag = 0; end
+            
+            if isfield(rCond{S}.(acq).(task).volResp.mag.respCat.stats,'fTsAvBase_catAv')
+                fBase = rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv;
+            else
+                fBase = char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase);
+            end
+            
             im = {
-                label.fBase
+                fBase
                 label.fBaseList{contains(b,'vesselness.nii')}
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
@@ -712,8 +745,8 @@ return
 %% Summarize roi
 
 plotIt  = 1;
-saveIt  = 1;
-printIt = 1;
+saveIt  = 0;
+printIt = 0;
 if plotIt
     close all
     figure('WindowStyle','docked');
@@ -724,7 +757,7 @@ for S = 1:size(subList,1)
         acq  = acqList{A};
         if ~isfield(rCond{S},acq)          ; continue; end
         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
-        for T = 1%:length(taskList)
+        for T = 1:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
             
@@ -751,14 +784,14 @@ adjPoly(hIol,'dilate1','w',1);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psd_dilate1_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psd_original_actQ'         },roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'psdTrialGram_original_actQ'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
 
-                [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+                % [~,hF{end+1},hA{end+1}] = smrRoi2(rCond{S}.(acq).(task),{'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
                 
                 
                 if saveIt
@@ -787,7 +820,7 @@ adjPoly(hIol,'dilate1','w',1);
             % get data
             % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ' },roi{S}.(acq).(task).vessel);
             % roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
-            roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' 'psd_dilate1_actQ' 'psdTrialGram_dilate1_actQ' 'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel);
+            % roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn' 'psd_dilate1_actQ' 'psdTrialGram_dilate1_actQ' 'coh_dilate1' 'cohTrialGram_dilate1'},roi{S}.(acq).(task).vessel);
         end
     end
 end
