@@ -448,6 +448,7 @@ for S = 1:size(subList,1)
             [~,b,~] = fileparts(label.fBaseList);
             imField = {
                 'base'
+                'basePhase'
                 'vesselness'
                 'resp'
                 'respSd'
@@ -462,14 +463,55 @@ for S = 1:size(subList,1)
             fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj); coefAdjFlag = 1;
             if isempty(fCondCoef); fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef); coefAdjFlag = 0; end
             
+            
+            % define main underlay image
             if isfield(rCond{S}.(acq).(task).volResp.mag.respCat.stats,'fTsAvBase_catAv')
                 fBase = rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase_catAv;
             else
                 fBase = char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fTsAvBase);
             end
             
+            % define secondary underlay image (phase)
+            if isfield(rCond{S}.(acq).(task).volResp,'cmplxMag1') && ~isempty(rCond{S}.(acq).(task).volResp.cmplxMag1)
+                if isfield(rCond{S}.(acq).(task).volResp.mag.respCat.stats,'fPoly0Base_catAv')
+                    ind = contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv,{'part-realImagMag1'})...
+                    & contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv,{'poly0basePhase'});
+                    fBasePhase = char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base_catAv(ind));
+                else
+                    ind = contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'part-realImagMag1'})...
+                    & contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'poly0basePhase'});
+                    fBasePhase = char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base(ind));
+                end
+                
+                % ind = contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'part-realImagMag1'})...
+                %     & contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'poly0basePhase'});
+                % fBasePhase = rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base(ind);
+                % if length(fBasePhase)==1
+                %     fBasePhase = char(fBasePhase);
+                % else
+                %     ind = all((contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'part-realMag1'})...
+                %         | contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'part-imagMag1'}))...
+                %         & contains(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base,{'poly0base'}),1);
+                %     fBasePhase = rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fPoly0Base(:,ind);
+                %     for i = 1:numel(fBasePhase)
+                %         fBasePhase{i} = MRIread(fBasePhase{i});
+                %     end
+                %     fBasePhase{1}.vol = repmat(fBasePhase{1}.vol,[1 1 1 1 size(fBasePhase)]);
+                %     for i = 2:numel(fBasePhase)
+                %         fBasePhase{1}.vol(:,:,:,:,i) = fBasePhase{i}.vol;
+                %     end
+                %     fBasePhase = fBasePhase{1};
+                %     fBasePhase.vol = mean(fBasePhase.vol,5);
+                %     fBasePhase.vol = angle(complex(fBasePhase.vol(:,:,:,:,:,1),fBasePhase.vol(:,:,:,:,:,2)));
+                % end
+                % fBasePhase
+            else
+                fBasePhase = '';
+            end
+            
             im = {
                 fBase
+                fBasePhase
                 label.fBaseList{contains(b,'vesselness.nii')}
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
                 char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
@@ -618,6 +660,20 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Explore roi with phase
+%%%%%%%%%%%%%%%%%%%%%%%%%
+S = 10;
+acq = 'vfMRIpc_dflt_pcVenc14ap';
+task = 'task_50sPrd5sDur';
+tilingPhs = plotUL3(roi{S}.(acq).(task).vessel,'basePhase',[]        ,4);
+tilingMag = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+[hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tilingMag.sub.right.hA);
+[~,hF,hA] = smrRoi2(rCond{S}.(acq).(task),{'respPhs_peakBasePhsInDilate1' },roi{S}.(acq).(task).vessel,tilingPhs.sub.right.hA);
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%
 
 return
 
