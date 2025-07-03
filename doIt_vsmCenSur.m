@@ -311,6 +311,7 @@ end
 %%%%%%%%%%%%%%%
 %% Get ROI data
 %%%%%%%%%%%%%%%
+% note: S=6 does not have the same matrix size for vfMRIpc vs vfMRIinflow, screwing up extraction of rois from vfMRIpc since they are defined using vfMRIinflow
 roi = cell(size(subList));
 for S = 1:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
@@ -334,6 +335,14 @@ for S = 1:size(subList,1)
                     'basePhase'
                     'vesselness'
                     'resp'
+                    % 'respSd'
+                    % 'respF'
+                    % 'respP'
+                    % 'respQ'
+                    'act'
+                    'actF'
+                    'actP'
+                    'actQ'
                     };
             else
                 imField = {
@@ -410,10 +419,10 @@ for S = 1:size(subList,1)
                     % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF)
                     % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF_pVal)
                     % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF_qVal)
-                    % char(fCondCoef)
-                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF)
-                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF_pVal)
-                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF_qVal)
+                    char(fCondCoef)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_pVal)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal)
                     };
             else
                 im = {
@@ -437,6 +446,21 @@ for S = 1:size(subList,1)
             for i = 1:length(roi{S}.(acq).(task).vessel)
                 roi{S}.(acq).(task).vessel(i).im.resp.dt = rCond{S}.(acq).(task).volResp.mag.respCat.param.trDecon;
             end
+
+
+            % remove background phase if pc data
+            % if contains(acq,'vfMRIpc')
+            %     for i  = 1:length(roi{S}.(acq).(task).vessel)
+            %         imPhsResp = permute(roi{S}.(acq).(task).vessel(i).im.resp.im,[4 1 2 3]);
+            %         imPhsBase = roi{S}.(acq).(task).vessel(i).im.basePhase.im;
+            %         bckgrndMask = getRoiBckgrndMask(imBase,1);
+            %         [xBase,yBase] = pol2cart(imPhsBase,1);
+            %         [bckgrndPhs,~] = cart2pol(mean(xBase(bckgrndMask)),mean(yBase(bckgrndMask)));
+            %         roi{S}.(acq).(task).vessel(i).im.basePhase.bias.offset = bckgrndPhs;
+            %         roi{S}.(acq).(task).vessel(i).im.resp.bias.offset = bckgrndPhs;
+            %     end
+            % end
+
 
             % add number of runs and trials
             [roi{S}.(acq).(task).vessel.R]      = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
@@ -574,13 +598,36 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore roi with phase
 %%%%%%%%%%%%%%%%%%%%%%%%%
-S = 10;
-acq = 'vfMRIpc_dflt_pcVenc14ap';
-task = 'task_50sPrd5sDur';
+% S = 10;
+% acq = 'vfMRIpc_dflt_pcVenc14ap';
+% task = 'task_50sPrd5sDur';
+S = 6;
+acq = 'vfMRI_dflt_none'; % vfMRIpc_dflt_pcVenc7ap 
+task = 'task_50sPrd10sDur';
 tilingPhs = plotUL3(roi{S}.(acq).(task).vessel,'basePhase',[]        ,4);
 tilingMag = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 [hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tilingMag.sub.right.hA);
 [~,hF,hA] = smrRoi2(rCond{S}.(acq).(task),{'respPhs_peakBasePhsInDilate1' },roi{S}.(acq).(task).vessel,tilingPhs.sub.right.hA);
+
+
+
+for S = 1:size(subList,1)
+    if (~isfield(rCond{S},'vfMRIpc_dflt_pcVenc7ap' ) || isempty(rCond{S}.vfMRIpc_dflt_pcVenc7ap)) ...
+        && (~isfield(rCond{S},'vfMRIpc_dflt_pcVenc14ap') || isempty(rCond{S}.vfMRIpc_dflt_pcVenc14ap)) ...
+        || isempty(roi{S}) ...
+        continue; end
+    for A = 1:length(acqList)
+        acq = acqList{A};
+        if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+        if contains(acq,'bold'); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+            tilingMag = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+        end
+    end
+end
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%
 
