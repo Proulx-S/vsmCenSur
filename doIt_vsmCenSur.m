@@ -308,124 +308,6 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-return
-
-if 0
-%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Explore maps with afni
-%%%%%%%%%%%%%%%%%%%%%%%%%
-% acq = 'bold_dflt_none';
-acq = 'vfMRIpc_dflt_pcVenc7ap';  
-fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
-fAfni = fullfile(fAfni,'afni_vfMRIpc7ap.sh');
-delete(fAfni);
-fid = fopen(fAfni,'w');
-for S = 1:size(subList,1)
-    if ~isfield(rCond{S},acq); continue; end
-    curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,'task_'));
-    curTaskList(contains(curTaskList,'fixOnly')) = [];
-    for T = 1:length(curTaskList)
-        cmd = {src.afni};
-        cmd{end+1} = ['afni \'                                                                                                             ];
-        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.stats.fRespOnPoly0Base)                          ' \'];
-        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.fStat)                  ,'_stats','_stats+orig') ' \'];
-        if isfield(rCond{S},acq)
-        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.stats.fResp{3})                            ' \'];
-        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.fStat)            ,'_stats','_stats+orig')     ];
-        end
-        
-
-        nRun = size(rCond{S}.(acq).(curTaskList{T}).fPreprocList,1);
-        fprintf(fid,'# Subject: %s, Task: %s, Number of runs: %d\n', subList{S}, curTaskList{T}, nRun);
-        fprintf(fid,'%s\n\n',strjoin(cmd,newline));
-    end
-end
-fclose(fid);
-fAfni
-
-
-
-% S = 10;
-% disp(strjoin(...
-% [rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.mag.respRun.stats.fPoly0Base
-% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fResp(:,:,3)
-% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fPoly0Base(:,3)
-% {[char(rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fStat) '+orig']}],...
-%     ' '))
-
-
-% rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun
-
-% rCond{S}.(acqList{1}).(taskList{1}).volResp.mag.respCat.xMat.nTrial'
-
-%% %%%%%%%%%%%%%%%%%%%%%%
-end
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Time-frequency analysis -- of BOLD data
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-for S = 1:size(subList,1)
-    acq  = 'bold_dflt_none'; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
-    for T = 1:length(taskList)
-        task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
-        disp('--------------------------------');
-        disp('--------------------------------');
-        disp(['SUB ' subList{S} ' ACQ ' acq ' TASK ' task]);
-        disp('--------------------------------');
-        disp('--------------------------------');
-
-        % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
-
-        K   = [1 4 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
-        W   = [];
-        win = [47.88/2 0.840]; % in seconds [lenght, step]
-        skipSVD = 0;
-        skipPSD = 0;
-        dsgn    = rCond{S}.(acq).(task).dsgn;
-        % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
-        mask    = char(rCond{S}.(acq).(task).volResp.mag.respCat.fMask);
-        rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
-
-% rCond_s1_bold = rCond{S}.(acq).(task);
-% save rCond_s1_bold rCond_s1_bold -v7.3
-
-        % figure('WindowStyle','docked');
-        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.f);
-        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.COH(:,:,:,:,:,:,:,1));
-        % plot(f,vec)
-
-        % figure('WindowStyle','docked');
-        % t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
-        % t = permute(mean(t,1),[1 3 2]);
-        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
-        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
-        % imagesc(t,f,vec)
-
-        % figure('WindowStyle','docked');
-        % mask = MRIread(mask); mask = logical(mask.vol);
-        % spSVim = zeros(size(mask));
-        % [~,b] = min(abs(rCond{S}.(acq).(task).volMt.run(1).svd.f - 0.0209));
-        % spSVim(mask) = rCond{S}.(acq).(task).volMt.run(1).svd.spSV(:,:,:,:,b,:,:,1);
-        % imagesc(abs(spSVim(:,:,1)))
-        % axis image
-        
-        % figure('WindowStyle','docked');
-        % imagesc(angle(spSVim))
-        % colormap(hsv)
-        % axis image
-
-        % lims = axis;
-        % axis(lims)
-
-        
-
-    end
-end
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 %%%%%%%%%%%%%%%
 %% Get ROI data
 %%%%%%%%%%%%%%%
@@ -446,20 +328,29 @@ for S = 1:size(subList,1)
 
             % rebuild roi but with functional data (resp and act)
             [~,b,~] = fileparts(label.fBaseList);
-            imField = {
-                'base'
-                'basePhase'
-                'vesselness'
-                'resp'
-                'respSd'
-                'respF'
-                'respP'
-                'respQ'
-                'act'
-                'actF'
-                'actP'
-                'actQ'
-                };
+            if contains(acq,'vfMRIpc')
+                imField = {
+                    'base'
+                    'basePhase'
+                    'vesselness'
+                    'resp'
+                    };
+            else
+                imField = {
+                    'base'
+                    'basePhase'
+                    'vesselness'
+                    'resp'
+                    'respSd'
+                    'respF'
+                    'respP'
+                    'respQ'
+                    'act'
+                    'actF'
+                    'actP'
+                    'actQ'
+                    };
+            end
             fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj); coefAdjFlag = 1;
             if isempty(fCondCoef); fCondCoef = char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef); coefAdjFlag = 0; end
             
@@ -509,20 +400,37 @@ for S = 1:size(subList,1)
                 fBasePhase = '';
             end
             
-            im = {
-                fBase
-                fBasePhase
-                label.fBaseList{contains(b,'vesselness.nii')}
-                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
-                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
-                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF)
-                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_pVal)
-                char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_qVal)
-                char(fCondCoef)
-                char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF)
-                char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_pVal)
-                char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal)
-                };
+            if contains(acq,'vfMRIpc')
+                im = {
+                    fBase
+                    fBasePhase
+                    label.fBaseList{contains(b,'vesselness.nii')}
+                    char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fResp(3))
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fRespStd)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF_pVal)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF_qVal)
+                    % char(fCondCoef)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF_pVal)
+                    % char(rCond{S}.(acq).(task).volResp.cmplxMag1.actCat.stats.fCondF_qVal)
+                    };
+            else
+                im = {
+                    fBase
+                    fBasePhase
+                    label.fBaseList{contains(b,'vesselness.nii')}
+                    char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
+                    char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
+                    char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF)
+                    char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_pVal)
+                    char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_qVal)
+                    char(fCondCoef)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_pVal)
+                    char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal)
+                    };
+            end
             cropSz = 10;
             roi{S}.(acq).(task).vessel = getVesselRoi2(label,imField,im,cropSz);
             [roi{S}.(acq).(task).vessel.coefAdjFlag] = deal(coefAdjFlag);
@@ -661,6 +569,8 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore roi with phase
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -672,10 +582,127 @@ tilingMag = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 [hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tilingMag.sub.right.hA);
 [~,hF,hA] = smrRoi2(rCond{S}.(acq).(task),{'respPhs_peakBasePhsInDilate1' },roi{S}.(acq).(task).vessel,tilingPhs.sub.right.hA);
 
-
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 return
+
+
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Explore maps with afni
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% acq = 'bold_dflt_none';
+acq = 'vfMRIpc_dflt_pcVenc7ap';  
+fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
+fAfni = fullfile(fAfni,'afni_vfMRIpc7ap.sh');
+delete(fAfni);
+fid = fopen(fAfni,'w');
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq); continue; end
+    curTaskList = fields(rCond{S}.(acq)); curTaskList = curTaskList(contains(curTaskList,'task_'));
+    curTaskList(contains(curTaskList,'fixOnly')) = [];
+    for T = 1:length(curTaskList)
+        cmd = {src.afni};
+        cmd{end+1} = ['afni \'                                                                                                             ];
+        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.stats.fRespOnPoly0Base)                          ' \'];
+        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.mag.respCat.fStat)                  ,'_stats','_stats+orig') ' \'];
+        if isfield(rCond{S},acq)
+        cmd{end+1} = [        char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.stats.fResp{3})                            ' \'];
+        cmd{end+1} = [replace(char(rCond{S}.(acq).(curTaskList{T}).volResp.cmplxMag1.respCat.fStat)            ,'_stats','_stats+orig')     ];
+        end
+        
+
+        nRun = size(rCond{S}.(acq).(curTaskList{T}).fPreprocList,1);
+        fprintf(fid,'# Subject: %s, Task: %s, Number of runs: %d\n', subList{S}, curTaskList{T}, nRun);
+        fprintf(fid,'%s\n\n',strjoin(cmd,newline));
+    end
+end
+fclose(fid);
+fAfni
+
+
+
+% S = 10;
+% disp(strjoin(...
+% [rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.mag.respRun.stats.fPoly0Base
+% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fResp(:,:,3)
+% rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fPoly0Base(:,3)
+% {[char(rCond{S}.vfMRIpc_dflt_pcVenc14ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun.stats.fStat) '+orig']}],...
+%     ' '))
+
+
+% rCond{S}.vfMRIpc_dflt_pcVenc7ap.task_50sPrd5sDur.volResp.cmplxMag1.respRun
+
+% rCond{S}.(acqList{1}).(taskList{1}).volResp.mag.respCat.xMat.nTrial'
+
+%% %%%%%%%%%%%%%%%%%%%%%%
+end
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Time-frequency analysis -- of BOLD data
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for S = 1:size(subList,1)
+    acq  = 'bold_dflt_none'; if ~isfield(rCond{S},acq) || isempty(rCond{S}.(acq)); continue; end
+    for T = 1:length(taskList)
+        task = taskList{T}; if ~isfield(rCond{S}.(acq),task) || isempty(rCond{S}.(acq).(task)); continue; end
+        disp('--------------------------------');
+        disp('--------------------------------');
+        disp(['SUB ' subList{S} ' ACQ ' acq ' TASK ' task]);
+        disp('--------------------------------');
+        disp('--------------------------------');
+
+        % dir(fullfile(rCond{S}.(acq).(task).dirs.bidsDeriv,'acq-vfMRI_prsc-dflt','sub-vsmDrivenP1_ses-1_task-50sPrd5sDur_acq-vfMRIinflow_run-1_angio'))
+
+        K   = [1 4 5]; % K(end)->full timeseries, K(1)->time-resolved, K(2)->trial-triggered based on missing data
+        W   = [];
+        win = [47.88/2 0.840]; % in seconds [lenght, step]
+        skipSVD = 0;
+        skipPSD = 0;
+        dsgn    = rCond{S}.(acq).(task).dsgn;
+        % fMask   = rCond{S}.(acq).(task).volAnat.label.calcarineVessel.f;
+        mask    = char(rCond{S}.(acq).(task).volResp.mag.respCat.fMask);
+        rCond{S}.(acq).(task) = runFullMT6(rCond{S}.(acq).(task),W,K,win,dsgn,mask,skipSVD,skipPSD);
+
+% rCond_s1_bold = rCond{S}.(acq).(task);
+% save rCond_s1_bold rCond_s1_bold -v7.3
+
+        % figure('WindowStyle','docked');
+        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.f);
+        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svd.COH(:,:,:,:,:,:,:,1));
+        % plot(f,vec)
+
+        % figure('WindowStyle','docked');
+        % t = mean(squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.t - rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.onsetList'),2);
+        % t = permute(mean(t,1),[1 3 2]);
+        % f = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.f);
+        % vec = squeeze(rCond{S}.(acq).(task).volMt.run(1).svdTrialGramMD.vec.cohEPC(:,:,:,:,:,:,:,1));
+        % imagesc(t,f,vec)
+
+        % figure('WindowStyle','docked');
+        % mask = MRIread(mask); mask = logical(mask.vol);
+        % spSVim = zeros(size(mask));
+        % [~,b] = min(abs(rCond{S}.(acq).(task).volMt.run(1).svd.f - 0.0209));
+        % spSVim(mask) = rCond{S}.(acq).(task).volMt.run(1).svd.spSV(:,:,:,:,b,:,:,1);
+        % imagesc(abs(spSVim(:,:,1)))
+        % axis image
+        
+        % figure('WindowStyle','docked');
+        % imagesc(angle(spSVim))
+        % colormap(hsv)
+        % axis image
+
+        % lims = axis;
+        % axis(lims)
+
+        
+
+    end
+end
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
