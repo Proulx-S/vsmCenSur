@@ -3,7 +3,9 @@
 # VS Code/Cursor Remote Monitoring Script
 # Monitors system resources, processes, and logs when MATLAB shell hangs
 
-LOG_DIR="$HOME/vscode_monitor_logs"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="$SCRIPT_DIR/monitor_logs"
 LOG_FILE="$LOG_DIR/monitor_$(date +%Y%m%d_%H%M%S).log"
 INTERVAL=5  # Monitor every 5 seconds
 

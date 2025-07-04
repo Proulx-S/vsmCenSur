@@ -1,0 +1,88 @@
+=== VS Code Debug Report Thu Jul  3 05:35:12 PM PDT 2025 ===
+=== System State ===
+Memory Usage:
+               total        used        free      shared  buff/cache   available
+Mem:           376Gi        37Gi       169Gi       116Mi       172Gi       338Gi
+Swap:          8.0Gi          0B       8.0Gi
+
+Active Processes:
+root        3670  0.0  0.0   2704  1576 ?        Ss   Jun17   0:00 fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subtype=portal -- /run/user/1000/doc
+root        5055  0.0  0.0   6980  4280 ?        S<   Jun17   0:00 /usr/NX/bin/nxexec --node /usr/NX/bin/nxexec --nopam --user sebp --priority realtime --mode 0 --pid 46
+sebp        5056  0.0  0.0 8660192 249640 ?      S<l  Jun17   8:06 /usr/NX/bin/nxnode.bin
+sebp       11408  0.6  0.0 1293056 57840 ?       Ssl  Jun17 157:36 /metrics-server --cert-dir=/tmp --secure-port=10250 --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --kubelet-use-node-status-port --metric-resolution=15s --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+root       12861  0.0  0.0 722224 11288 ?        Ssl  Jun17   1:19 /csi-cvmfsplugin -v=4 --nodeid=$(NODE_ID) --endpoint=unix:///csi/csi.sock --drivername=cvmfs.csi.cern.ch --role=identity,controller
+root       13028  0.0  0.0 726476 11036 ?        Ssl  Jun17   1:44 /csi-node-driver-registrar -v=4 --csi-address=/csi/csi.sock --kubelet-registration-path=/var/lib/kubelet/plugins/cvmfs.csi.cern.ch/csi.sock
+root       13408  0.0  0.0 723760  8972 ?        Ssl  Jun17   2:08 /csi-cvmfsplugin -v=4 --nodeid=takoyaki --endpoint=unix:///var/lib/kubelet/plugins/cvmfs.csi.cern.ch/csi.sock --drivername=cvmfs.csi.cern.ch --role=identity,node --automount-startup-timeout=10 --singlemount-runner-endpoint=unix:///var/lib/cvmfs.csi.cern.ch/singlemount-runner.sock
+root       35286  0.0  0.0 1307412 53864 ?       Ssl  Jun17  13:21 longhorn-manager -d csi --nodeid=takoyaki --endpoint=unix:///csi/csi.sock --drivername=driver.longhorn.io --manager-url=http://longhorn-backend:9500/v1
+root       35963  0.0  0.0 1248748 17604 ?       Ssl  Jun17   2:03 /csi-node-driver-registrar --v=2 --csi-address=/csi/csi.sock --kubelet-registration-path=/var/lib/kubelet/plugins/driver.longhorn.io/csi.sock
+sebp      874576  0.1  0.0 11844556 93100 ?      Sl   13:04   0:22 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/server-main.js --connection-token=remotessh --accept-server-license-terms --start-server --enable-remote-auto-shutdown --socket-path=/tmp/cursor-2d972310-1a11-4724-9c11-a7a2dafff0eb
+sebp      874607  0.1  0.0 11702784 62348 ?      Sl   13:04   0:18 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/bootstrap-fork --type=ptyHost --logsPath /home/sebp/.cursor-server/data/logs/20250703T130416
+sebp      874630  0.0  0.0 11923160 52200 ?      Sl   13:04   0:02 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/bootstrap-fork --type=fileWatcher
+sebp      874649  1.7  0.2 107443264 892396 ?    Sl   13:04   4:45 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node --dns-result-order=ipv4first /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=false
+sebp      874959  0.8  0.0 1329836 151936 ?      Sl   13:04   2:22 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/extensions/mathworks.language-matlab-1.3.3/server/out/index.js --matlabInstallPath= --matlabConnectionTiming=onStart --snippetIgnoreList='For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block' --indexWorkspace --node-ipc --clientProcessId=874649
+sebp      874973 26.1  3.1 47848752 12430892 ?   Sl   13:04  70:52 /usr/local/MATLAB/R2024b/bin/glnxa64/MATLAB -log -noAppIcon -nosplash -r addpath(fullfile('/home/sebp/.cursor-server/extensions/mathworks.language-matlab-1.3.3/server/out', '..', 'matlab')); initmatlabls('/tmp/matlabls_874959/matlabls_conn.json') -useStartupFolderPref -nodesktop -prefersoftwareopengl
+sebp      875318  0.0  0.0 2704120 189136 ?      Sl   13:04   0:12 /home/sebp/.MathWorks/ServiceHost/-mw_shared_installs/v2025.5.1.1/bin/glnxa64/MathWorksServiceHost client-v1 --lifetime-token 13 -1 --realm-id companion@prod@production --locale en_US --application-id Mathworks.MATLAB.MATLAB.R2024b --client-id 4qAUCGqdEiuirpRrl5xoir --matlabrootpath /usr/local/MATLAB/R2024b --withdisplay --gui cef
+sebp      877025  0.0  0.0   5988  3252 pts/6    Ss+  13:05   0:01 /usr/local/MATLAB/R2024b/bin/glnxa64/matlab_helper /dev/pts/6 no
+sebp      945923  0.0  0.0 994300 52468 ?        Sl   13:48   0:00 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/extensions/markdown-language-features/dist/serverWorkerMain --node-ipc --clientProcessId=874649
+sebp      948019  0.1  0.0  10208  3296 pts/5    S    13:49   0:22 /bin/bash ./vscode_monitor.sh start
+sebp     1066288  0.0  0.0 994212 51900 ?        Sl   15:00   0:00 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=874649
+sebp     1228178  0.5  0.1 102547352 681268 ?    Sl   16:37   0:19 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node --dns-result-order=ipv4first /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=false
+sebp     1228282  0.0  0.0 1312416 76092 ?       Sl   16:37   0:01 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/extensions/mathworks.language-matlab-1.3.3/server/out/index.js --matlabInstallPath= --matlabConnectionTiming=onStart --snippetIgnoreList='For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block' --indexWorkspace --node-ipc --clientProcessId=1228178
+sebp     1228310  0.0  0.0 11726576 52148 ?      Sl   16:37   0:00 /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/node /home/sebp/.cursor-server/cli/servers/Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850/server/out/bootstrap-fork --type=fileWatcher
+sebp     1228332  5.5  0.9 29692708 3705076 ?    Sl   16:37   3:10 /usr/local/MATLAB/R2024b/bin/glnxa64/MATLAB -log -noAppIcon -nosplash -r addpath(fullfile('/home/sebp/.cursor-server/extensions/mathworks.language-matlab-1.3.3/server/out', '..', 'matlab')); initmatlabls('/tmp/matlabls_1228282/matlabls_conn.json') -useStartupFolderPref -nodesktop -prefersoftwareopengl
+sebp     1228636  0.0  0.0 2712316 186128 ?      Sl   16:37   0:03 /home/sebp/.MathWorks/ServiceHost/-mw_shared_installs/v2025.5.1.1/bin/glnxa64/MathWorksServiceHost client-v1 --lifetime-token 11 -1 --realm-id companion@prod@production --locale en_US --application-id Mathworks.MATLAB.MATLAB.R2024b --client-id 7MqM4HDj6vHIhLmqoDfeHf --matlabrootpath /usr/local/MATLAB/R2024b --withdisplay --gui cef
+sebp     1241890  0.0  0.0 2990844 188040 pts/0  Sl   Jun23   7:41 /home/sebp/.MathWorks/ServiceHost/-mw_shared_installs/v2025.5.1.1/bin/glnxa64/MathWorksServiceHost client-v1 --lifetime-token 14 -1 --realm-id companion@prod@production --locale en_US --application-id Mathworks.MATLAB.MATLAB.R2024b --client-id 552z0M8vlO74cyXM8gpKJD --matlabrootpath /usr/local/MATLAB/R2024b --withdisplay --gui cef
+sebp     1248594  0.0  0.0   5988  3244 pts/1    Ss+  Jun23   0:01 /usr/local/MATLAB/R2024b/bin/glnxa64/matlab_helper /dev/pts/1 yes
+nobody   3869195  0.0  0.0 710488 48368 ?        Ssl  Jul02   0:48 node /srv/configurable-http-proxy/bin/configurable-http-proxy --ip= --api-ip= --api-port=8001 --default-target=http://hub:8081 --error-target=http://hub:8081/hub/error --port=8000
+
+Network Connections:
+tcp6       0      0 171.65.36.104:22        10.39.59.18:58601       ESTABLISHED
+
+=== VS Code Server Logs ===
+--- /home/sebp/.vscode-server/.cli.7c6fdfb0b8f2f675eb0b47f3d95eeca78962565b.log ---
+Listening on 127.0.0.1:40519
+[2025-04-10 21:44:29] info Disposed of connection to running server.
+[2025-04-10 21:44:29] info Checking /home/sebp/.vscode-server/cli/servers/Stable-7c6fdfb0b8f2f675eb0b47f3d95eeca78962565b/log.txt and /home/sebp/.vscode-server/cli/servers/Stable-7c6fdfb0b8f2f675eb0b47f3d95eeca78962565b/pid.txt for a running server...
+[2025-04-10 21:44:29] info Starting server...
+[2025-04-10 21:44:29] info Server started
+[2025-04-10 22:49:11] info Disposed of connection to running server.
+
+--- /home/sebp/.vscode-server/data/logs/20250417T201355/exthost1/vscode.github/GitHub.log ---
+2025-04-17 20:13:57.983 [info] Log level: Info
+
+--- /home/sebp/.vscode-server/data/logs/20250417T201355/exthost1/remoteexthost.log ---
+2025-04-17 20:13:55.990 [info] Extension host with pid 4181220 started
+2025-04-17 20:13:56.083 [info] ExtensionService#_doActivateExtension vscode.emmet, startup: false, activationEvent: 'onLanguage'
+2025-04-17 20:13:56.156 [info] ExtensionService#_doActivateExtension vscode.git-base, startup: true, activationEvent: '*', root cause: vscode.git
+2025-04-17 20:13:56.156 [info] ExtensionService#_doActivateExtension KorbinianEckstein.niivue, startup: true, activationEvent: '*'
+2025-04-17 20:13:56.198 [info] ExtensionService#_doActivateExtension vscode.git, startup: true, activationEvent: '*'
+2025-04-17 20:13:56.198 [info] ExtensionService#_doActivateExtension vscode.github, startup: true, activationEvent: '*'
+2025-04-17 20:13:56.356 [info] Eager extensions activated
+2025-04-17 20:13:56.356 [info] ExtensionService#_doActivateExtension vscode.debug-auto-launch, startup: false, activationEvent: 'onStartupFinished'
+2025-04-17 20:13:56.357 [info] ExtensionService#_doActivateExtension vscode.merge-conflict, startup: false, activationEvent: 'onStartupFinished'
+2025-04-17 20:13:56.357 [info] ExtensionService#_doActivateExtension GitHub.copilot, startup: false, activationEvent: 'onStartupFinished'
+2025-04-17 20:13:56.357 [info] ExtensionService#_doActivateExtension GitHub.copilot-chat, startup: false, activationEvent: 'onStartupFinished'
+2025-04-17 20:13:57.526 [info] ExtensionService#_doActivateExtension vscode.configuration-editing, startup: false, activationEvent: 'onLanguage:jsonc'
+2025-04-17 20:13:57.527 [info] ExtensionService#_doActivateExtension vscode.json-language-features, startup: false, activationEvent: 'onLanguage:jsonc'
+2025-04-17 20:13:57.527 [info] ExtensionService#_doActivateExtension vscode.typescript-language-features, startup: false, activationEvent: 'onLanguage:jsonc'
+2025-04-17 20:15:48.997 [info] Extension host terminating: received terminate message from renderer
+2025-04-17 20:15:49.034 [info] Extension host with pid 4181220 exiting with code 0
+
+--- /home/sebp/.vscode-server/data/logs/20250417T201355/exthost1/GitHub.copilot-chat/GitHub Copilot Chat.log ---
+2025-04-17 20:13:58.023 [info] Can't use the Electron fetcher in this environment.
+2025-04-17 20:13:58.023 [info] Using the Node fetch fetcher.
+2025-04-17 20:13:58.023 [info] Initializing Git extension service.
+2025-04-17 20:13:58.023 [info] Successfully activated the vscode.git extension.
+2025-04-17 20:13:58.023 [info] Enablement state of the vscode.git extension: true.
+2025-04-17 20:13:58.023 [info] Successfully registered Git commit message provider.
+2025-04-17 20:13:59.123 [info] Logged in as Proulx-S
+2025-04-17 20:14:00.012 [info] Got Copilot token for Proulx-S
+2025-04-17 20:14:00.253 [info] copilot token chat_enabled: true, sku: free_limited_copilot
+2025-04-17 20:14:00.253 [info] GitHub.vscode-pull-request-github extension is not yet activated.
+2025-04-17 20:14:00.269 [info] Registering default platform agent...
+2025-04-17 20:14:00.688 [info] Fetched model metadata in 659ms 7d87384c-a5e4-427e-a08e-83c543233d2e
+2025-04-17 20:14:00.737 [info] activationBlocker from 'languageModelAccess' took for 1985ms
+
+--- /home/sebp/.vscode-server/data/logs/20250417T201355/exthost1/remoteExtHostTelemetry.log ---
+
+=== Extension Logs ===

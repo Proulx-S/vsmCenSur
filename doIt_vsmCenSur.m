@@ -308,6 +308,8 @@ for S = 1:size(subList,1)
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
 %%%%%%%%%%%%%%%
 %% Get ROI data
 %%%%%%%%%%%%%%%
@@ -449,17 +451,29 @@ for S = 1:size(subList,1)
 
 
             % remove background phase if pc data
-            % if contains(acq,'vfMRIpc')
-            %     for i  = 1:length(roi{S}.(acq).(task).vessel)
-            %         imPhsResp = permute(roi{S}.(acq).(task).vessel(i).im.resp.im,[4 1 2 3]);
-            %         imPhsBase = roi{S}.(acq).(task).vessel(i).im.basePhase.im;
-            %         bckgrndMask = getRoiBckgrndMask(imBase,1);
-            %         [xBase,yBase] = pol2cart(imPhsBase,1);
-            %         [bckgrndPhs,~] = cart2pol(mean(xBase(bckgrndMask)),mean(yBase(bckgrndMask)));
-            %         roi{S}.(acq).(task).vessel(i).im.basePhase.bias.offset = bckgrndPhs;
-            %         roi{S}.(acq).(task).vessel(i).im.resp.bias.offset = bckgrndPhs;
-            %     end
-            % end
+            if contains(acq,'vfMRIpc')
+                for i  = 1:length(roi{S}.(acq).(task).vessel)
+                    imPhsBase = roi{S}.(acq).(task).vessel(i).im.basePhase.im;
+                    imBase    = roi{S}.(acq).(task).vessel(i).im.base.im;
+                    [bckgrndMask,f] = getRoiBckgrndMask(imBase,0);
+                    if ~isempty(f)
+                        f = [f{:}];
+                        ax = findobj([f.Children],'Type','axes');
+                        title(ax(end),['sub ' subList{S} '; task ' task '; roi' num2str(i)]);
+                    end
+                    [xBase,yBase] = pol2cart(imPhsBase,1);
+                    [bckgrndPhs,~] = cart2pol(mean(xBase(bckgrndMask)),mean(yBase(bckgrndMask)));
+                    roi{S}.(acq).(task).vessel(i).im.basePhase.bias.maskBase = roi{S}.(acq).(task).vessel(i).im.basePhase;
+                    roi{S}.(acq).(task).vessel(i).im.basePhase.bias.mask     = bckgrndMask;
+                    roi{S}.(acq).(task).vessel(i).im.basePhase.bias.offsetIm = imPhsBase;
+                    roi{S}.(acq).(task).vessel(i).im.basePhase.bias.offset   = bckgrndPhs;
+                    roi{S}.(acq).(task).vessel(i).im.resp.bias.maskBase = roi{S}.(acq).(task).vessel(i).im.basePhase;
+                    roi{S}.(acq).(task).vessel(i).im.resp.bias.mask     = bckgrndMask;
+                    roi{S}.(acq).(task).vessel(i).im.resp.bias.offsetIm = imPhsBase;
+                    roi{S}.(acq).(task).vessel(i).im.resp.bias.offset   = bckgrndPhs;
+                    drawnow;
+                end
+            end
 
 
             % add number of runs and trials
@@ -598,15 +612,114 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore roi with phase
 %%%%%%%%%%%%%%%%%%%%%%%%%
-% S = 10;
-% acq = 'vfMRIpc_dflt_pcVenc14ap';
-% task = 'task_50sPrd5sDur';
-S = 6;
-acq = 'vfMRI_dflt_none'; % vfMRIpc_dflt_pcVenc7ap 
-task = 'task_50sPrd10sDur';
-tilingPhs = plotUL3(roi{S}.(acq).(task).vessel,'basePhase',[]        ,4);
-tilingMag = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
-[hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tilingMag.sub.right.hA);
+% S = 6;
+% acq = 'vfMRI_dflt_none'; % vfMRIpc_dflt_pcVenc7ap 
+% task = 'task_50sPrd10sDur';
+S = 10;
+task = 'task_50sPrd5sDur';
+acqMag = 'vfMRI_dflt_none';
+tilingMagInflow = plotUL3(roi{S}.(acqMag).(task).vessel,'base'     ,[100 1500],4);
+[hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acqMag).(task).vessel,tilingMagInflow.sub.right.hA);
+acqPhs = 'vfMRIpc_dflt_pcVenc14ap';
+tilingPhs = plotUL3(roi{S}.(acqPhs).(task).vessel,'basePhase',[]        ,4);
+tilingMag = plotUL3(roi{S}.(acqPhs).(task).vessel,'base'     ,[100 1500],4);
+vesselTmp = roi{S}.(acqPhs).(task).vessel;
+for i = 1:length(vesselTmp)
+    vesselTmp(i).im = [];
+    vesselTmp(i).im.bckgrndMask = roi{S}.(acqPhs).(task).vessel(i).im.basePhase;
+    vesselTmp(i).im.bckgrndMask.im = roi{S}.(acqPhs).(task).vessel(i).im.basePhase.bias.mask;
+end
+tilingBckgrndMask = plotUL3(vesselTmp,'bckgrndMask'     ,[],4);
+
+
+pcMagBase        = cell(1,length(roi{S}.(acqPhs).(task).vessel));
+pcPhsBase        = cell(1,length(roi{S}.(acqPhs).(task).vessel));
+pcPhsWrapHigh    = cell(1,length(roi{S}.(acqPhs).(task).vessel));
+pcPhsWrapLow     = cell(1,length(roi{S}.(acqPhs).(task).vessel));
+pcPhsResp        = cell(1,length(roi{S}.(acqPhs).(task).vessel));
+inflowMagBase    = cell(1,length(roi{S}.(acqMag).(task).vessel)); 
+inflowMagActCoef = cell(1,length(roi{S}.(acqMag).(task).vessel));
+inflowMagActP    = cell(1,length(roi{S}.(acqMag).(task).vessel));
+for i = 1:length(roi{S}.(acqPhs).(task).vessel)
+    pcMagBase{i}     = roi{S}.(acqPhs).(task).vessel(i).im.base.im;
+    sz = [size(pcMagBase{i}) 1 size(roi{S}.(acqPhs).(task).vessel(i).im.resp.im,4)];
+    pcPhsWrapHigh{i} = ones(sz) .* ( pi - roi{S}.(acqPhs).(task).vessel(i).im.basePhase.bias.offset);
+    pcPhsWrapLow{i}  = ones(sz) .* (-pi - roi{S}.(acqPhs).(task).vessel(i).im.basePhase.bias.offset);
+    pcPhsBase{i}     = roi{S}.(acqPhs).(task).vessel(i).im.basePhase.im - roi{S}.(acqPhs).(task).vessel(i).im.basePhase.bias.offset;
+    pcPhsResp{i}     = roi{S}.(acqPhs).(task).vessel(i).im.resp.im - roi{S}.(acqPhs).(task).vessel(i).im.resp.bias.offset;
+    
+    pcPhsWrapHigh{i} = pcPhsWrapHigh{i}/pi*14;
+    pcPhsWrapLow{i}  = pcPhsWrapLow{i}/pi*14;
+    pcPhsBase{i} = pcPhsBase{i}/pi*14;
+    pcPhsResp{i} = pcPhsResp{i}/pi*14;
+    
+    inflowMagBase{i}    = roi{S}.(acqMag).(task).vessel(i).im.base.im;
+    inflowMagActCoef{i} = roi{S}.(acqMag).(task).vessel(i).im.act.im;
+    inflowMagActP{i}    = roi{S}.(acqMag).(task).vessel(i).im.actP.im;
+end
+pcMagBase        = tileImages(pcMagBase);
+pcPhsBase        = tileImages(pcPhsBase);
+pcPhsWrapHigh    = tileImages(pcPhsWrapHigh);
+pcPhsWrapLow     = tileImages(pcPhsWrapLow);
+pcPhsResp        = tileImages(pcPhsResp);
+inflowMagBase    = tileImages(inflowMagBase);
+inflowMagActCoef = tileImages(inflowMagActCoef);
+inflowMagActP    = tileImages(inflowMagActP);
+
+mri = MRIread(roi{S}.(acqPhs).(task).vessel(1).im.base.fName,1);
+tempDir = fullfile(scratchDir,replace(workScript,'doIt_','')); mkdir(tempDir);
+tempDir = fullfile(tempDir,['freeview_phsRoi_s' num2str(S) '_a' acqPhs '_t' task]); mkdir(tempDir);
+
+
+fileList = {};
+mri.vol = pcMagBase;
+MRIwrite(mri,fullfile(tempDir,'pcMagBase.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'pcMagBase.nii.gz');
+disp(fullfile(tempDir,'pcMagBase.nii.gz'));
+mri.vol = pcPhsBase;
+MRIwrite(mri,fullfile(tempDir,'pcPhsBase.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'pcPhsBase.nii.gz');
+disp(fullfile(tempDir,'pcPhsBase.nii.gz'));
+mri.vol = pcPhsWrapHigh;
+MRIwrite(mri,fullfile(tempDir,'pcPhsWrapHigh.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'pcPhsWrapHigh.nii.gz');
+disp(fullfile(tempDir,'pcPhsWrapHigh.nii.gz'));
+mri.vol = pcPhsWrapLow;
+MRIwrite(mri,fullfile(tempDir,'pcPhsWrapLow.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'pcPhsWrapLow.nii.gz');
+disp(fullfile(tempDir,'pcPhsWrapLow.nii.gz'));
+mri.vol = pcPhsResp;
+MRIwrite(mri,fullfile(tempDir,'pcPhsResp.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'pcPhsResp.nii.gz');
+disp(fullfile(tempDir,'pcPhsResp.nii.gz'));
+mri.vol = inflowMagBase;
+MRIwrite(mri,fullfile(tempDir,'inflowMagBase.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'inflowMagBase.nii.gz');
+disp(fullfile(tempDir,'inflowMagBase.nii.gz'));
+mri.vol = inflowMagActCoef;
+MRIwrite(mri,fullfile(tempDir,'inflowMagActCoef.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'inflowMagActCoef.nii.gz');
+disp(fullfile(tempDir,'inflowMagActCoef.nii.gz'));
+mri.vol = inflowMagActP;
+MRIwrite(mri,fullfile(tempDir,'inflowMagActP.nii.gz'));
+fileList{end+1} = fullfile(tempDir,'inflowMagActP.nii.gz');
+disp(fullfile(tempDir,'inflowMagActP.nii.gz'));
+
+scratchDir2 = '/home/jovyan/scratch/Proulx-S/';
+fileList = replace(fileList,scratchDir,scratchDir2);
+
+cmd = [{'freeview'} fileList]
+cmd = strjoin(cmd,[' \\' newline]);
+cmd = [src.fs newline cmd];
+cmdFile = fullfile(tempDir,['cmd.sh']);
+fid = fopen(cmdFile,'w');
+fprintf(fid,'%s\n',cmd);
+fclose(fid);
+disp(cmdFile);
+
+
+
+
 [~,hF,hA] = smrRoi2(rCond{S}.(acq).(task),{'respPhs_peakBasePhsInDilate1' },roi{S}.(acq).(task).vessel,tilingPhs.sub.right.hA);
 
 

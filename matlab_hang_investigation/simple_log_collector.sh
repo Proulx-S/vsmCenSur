@@ -1,7 +1,9 @@
 #!/bin/bash
 # Simple VS Code Log Collector for MATLAB Hanging Issues
 
-LOG_DIR="$HOME/vscode_debug_logs"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="$SCRIPT_DIR"
 mkdir -p "$LOG_DIR"
 REPORT="$LOG_DIR/debug_$(date +%Y%m%d_%H%M%S).txt"
 
