@@ -624,6 +624,10 @@ return
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore roi with phase
 %%%%%%%%%%%%%%%%%%%%%%%%%
+% NOTES:
+% - For vfMRIinflow, critical velocity is ~14.3cm/s (1.2mm slice thickness / 8.4ms TR)
+% - For vfMRIpc, critical velocity is     ~18.2cm/s (1.2mm slice thickness / 6.593ms TR   OR   0.12cm / 0.006593s)
+
 % S = 6;
 % acq = 'vfMRI_dflt_none'; % vfMRIpc_dflt_pcVenc7ap 
 % task = 'task_50sPrd10sDur';
