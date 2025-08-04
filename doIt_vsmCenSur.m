@@ -315,7 +315,7 @@ end
 %%%%%%%%%%%%%%%
 % note: S=6 does not have the same matrix size for vfMRIpc vs vfMRIinflow, screwing up extraction of rois from vfMRIpc since they are defined using vfMRIinflow
 roi = cell(size(subList));
-for S = 1%:size(subList,1)
+for S = 1;%size(subList,1)%:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
     taskTmp = fields(rCond{S}.vfMRI_dflt_none); taskTmp = taskTmp(contains(taskTmp,'task_'));
     label = rCond{S}.vfMRI_dflt_none.(taskTmp{1}).volAnat.label.calcarineVessel;
@@ -333,9 +333,11 @@ for S = 1%:size(subList,1)
             if contains(acq,'vfMRIpc')
                 imField = {
                     'base'
+                    'basePolyRun'
                     'basePhase'
                     'basePhase_tsAv'
                     'vesselness'
+                    'ts'
                     'resp'
                     % 'respSd'
                     % 'respF'
@@ -427,9 +429,11 @@ for S = 1%:size(subList,1)
             if contains(acq,'vfMRIpc')
                 im = {
                     fBase
+                    fBasePolyRun
                     fBasePhase
                     fBasePhase_tsAv
                     label.fBaseList{contains(b,'vesselness.nii')}
+                    rCond{S}.(acq).(task).fPreprocList(:,5)
                     char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fResp(3))
                     % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fRespStd)
                     % char(rCond{S}.(acq).(task).volResp.cmplxMag1.respCat.stats.fCondF)
@@ -477,11 +481,15 @@ for S = 1%:size(subList,1)
             end
 
 
-            % remove background phase if pc data
-            if contains(acq,'vfMRIpc')
-                for i  = 1:length(roi{S}.(acq).(task).vessel)
+            for i  = 1:length(roi{S}.(acq).(task).vessel)
+                % tissue mask
+                imBase    = roi{S}.(acq).(task).vessel(i).im.base.im;
+                [bckgrndMask,f] = getRoiBckgrndMask(imBase,0);
+                roi{S}.(acq).(task).vessel(i).polyMask{end+1}  = bckgrndMask;
+                roi{S}.(acq).(task).vessel(i).polyLabel{end+1} = 'tissue';
+                % remove background phase if pc data
+                if contains(acq,'vfMRIpc')
                     imPhsBase = roi{S}.(acq).(task).vessel(i).im.basePhase.im;
-                    imBase    = roi{S}.(acq).(task).vessel(i).im.base.im;
                     [bckgrndMask,f] = getRoiBckgrndMask(imBase,0);
                     if ~isempty(f)
                         f = [f{:}];
@@ -638,9 +646,9 @@ end
 return
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Explore time series in transformed space
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Explore time series in transformed space (timeseries svd)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 S=1;
 acq = 'vfMRI_dflt_none';
 task = 'task_50sPrd5sDur';
@@ -739,8 +747,152 @@ end
 
 
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Explore time series in transformed space (area)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+S=1;
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+R = rCond{S}.(acq).(task).volResp.mag.respCat.R;
+dsgn = rCond{S}.(acq).(task).dsgn;
+nFrame = rCond{S}.(acq).(task).nFrame;
+tr = rCond{S}.(acq).(task).tr;
+nDummy = rCond{S}.(acq).(task).nDummy;
+fMat = rCond{S}.(acq).(task).volResp.mag.respCat.fMat;
+
+% compute svd on ts
+for vs = 1:length(roi{S}.(acq).(task).vessel)
+    ts      = [];
+    tsOrig = [];
+    t       = [];
+    onsets  = [];
+    for r = 1:length(roi{S}.(acq).(task).vessel(vs).im.ts.im)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % should detrend on run by run basis here
+        ts = cat(4,ts,...
+        roi{S}.(acq).(task).vessel(vs).im.ts.im{r} - roi{S}.(acq).(task).vessel(vs).im.basePolyRun.im{r});
+        tsOrig = cat(4,tsOrig,...
+        roi{S}.(acq).(task).vessel(vs).im.ts.im{r});
+        t = cat(2,t,...
+            (  (1:nFrame(r))+nDummy(r)-1  +  (nDummy(r)+nFrame(r))*(r-1)  )  .*  tr(r)   ...
+        );
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        onsets = cat(2,onsets,dsgn.onsetList + (nDummy(r)+nFrame(r))*(r-1) .* tr(r));
+    end
+    t      = permute(t,[2 1 3 4]);
+    ts     = permute(ts,[4 1 2 3]);
+    tsOrig = permute(tsOrig,[4 1 2 3]);
+    onsets = permute(onsets,[2 1 3 4]);
+
+    % compute area
+    wMask = roi{S}.(acq).(task).vessel(vs).polyMask{ismember(roi{S}.(acq).(task).vessel(vs).polyLabel,'peakVox')};
+    zMask = roi{S}.(acq).(task).vessel(vs).polyMask{ismember(roi{S}.(acq).(task).vessel(vs).polyLabel,'dilate1p5')};
+    tMask = roi{S}.(acq).(task).vessel(vs).polyMask{ismember(roi{S}.(acq).(task).vessel(vs).polyLabel,'tissue')};
+    wVal = tsOrig(:,wMask);
+    zVal = tsOrig(:,zMask);
+    tVal = mean(tsOrig(:,tMask),1);
+    A  = ( size(wVal,2).*mean(wVal-mean(tVal,2),2) + size(zVal,2).*mean(zVal-mean(tVal,2),2) ) ./ mean(wVal-mean(tVal,2),2);
+    A  = permute(A,[2 1 3 4]);
+    Vl = permute(mean(wVal,2),[2 1 3 4]);
+    % figure('WindowStyle','docked');
+    % plot(V); hold on
+
+
+
+    [U,SS,V] = svd(ts(:,:),'econ','vector');
+    V = reshape(permute(V,[2 1]),[size(V,2) size(ts,[2 3 4])]);
+    U = permute(U,[2 1]);
+    U = U.*SS;
+    V = V.*SS;
+
+    U2 = cat(1,A,Vl,U);
+
+    % fir
+    cmdX = {src.afni}; cmdX{end+1} = ['1dcat ' char(fMat)]; [~,cmdout] = system(strjoin(cmdX,newline));
+    mat = str2num(cmdout);
+    % mat = mat ./ vecnorm(mat,1,1); % normalize each regressor to 1-norm = 1
+    baseRegPerRun = (find(mat(end,:),1,'first')-1)./(R-1);
+    baseReg = false(1,size(mat,2));
+    baseReg(1,1:(baseRegPerRun*R)) = true;
+    respReg = false(1,size(mat,2));
+    respReg(1,(baseRegPerRun*R)+1:end) = true;
+
+    % Regress mat onto U: each column of mat is a regressor, rows of mat correspond to rows of U
+    % Solve for beta in U = beta * mat'
+    beta = U2 / mat';
+
+    for c = 1:3
+        figure('WindowStyle','docked');
+        ht = tiledlayout(5,3); ht.TileSpacing = 'compact'; ht.Padding = 'compact'; ax = {};
+
+        ax{end+1} = nexttile([2 1]);
+        if c>2
+            plot(SS,'k'); ylabel('singular value');
+            axis tight; hold on;
+            xline(c,'r');
+        end
+
+        ax{end+1} = nexttile([2 1]);
+        if c>2
+            cLim = [-1 1] * max(abs(V(1,:)));
+            imagesc(squeeze(V(c,:,:)),cLim);
+            axis image; ylabel(colorbar,'spatial singlular vector');
+            ax{end}.YAxis.Visible = 'off'; ax{end}.XAxis.Visible = 'off'; colormap(ax{end},'jet');
+        end
+
+        ax{end+1} = nexttile([2 1]);
+        tt = (1:nnz(respReg)).*dsgn.dt;
+        plot(tt,beta(c,respReg),'r');
+        grid on; xlabel('post-onset time (s)'); ylabel('vessel area change (pixel)'); axis tight;
+
+        ax{end+1} = nexttile([1 3]);
+        resid = U2(c,:) - beta(c,:)*mat';
+        plot(t,resid,'k'); axis tight; grid on;
+        ylabel('residual');
+        xline(onsets,'b');
+        ax{end}.XTick = [];
+
+        ax{end+1} = nexttile([2 3]);
+        plot(t,U2(c,:),'k'); axis tight;
+        if c==1
+            xlabel('time (s)'); ylabel('vessel area change');
+        elseif c==2
+            xlabel('time (s)'); ylabel('vessel velocity');
+        else
+            xlabel('time (s)'); ylabel('temporal singlular vector');
+        end
+        xline(onsets,'b');
+        hold on;
+        plot(t,beta(c,baseReg)*mat(:,baseReg)',':r');
+        plot(t,beta(c,:)*mat','r');
+
+        er = sqrt(  resid.^2 * mat(:,respReg) ./ sum(mat(:,respReg),1)  )  ./  sqrt(sum(mat(:,respReg),1));
+        errorbar(ax{3},tt,beta(c,respReg),er,'CapSize',0,'Color','r');
+        axis(ax{3},'tight'); grid(ax{3},'on'); ax{3}.YLim = max(abs(ax{3}.YLim)) * [-1 1]; ax{3}.XLim = [0 tt(end)];
+        xlabel(ax{3},'post-onset time (s)'); ylabel(ax{3},'fitted MR signal +/- sem');
+        % if c == 1
+        %     yLim = ax{3}.YLim;
+        % else
+        %     ax{3}.YLim = yLim;
+        % end
+
+        if c==1
+            title(ht,['vessel area']);
+        elseif c==2
+            title(ht,['vessel velocity']);
+        else
+            title(ht,['component ' num2str(c-2) ' of ' [roi{S}.(acq).(task).vessel(vs).class ' ' num2str(roi{S}.(acq).(task).vessel(vs).id)]]);
+        end
+    end
+end
+
+
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
