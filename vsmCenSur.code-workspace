@@ -12,7 +12,15 @@
 	],
 	"settings": {
 		"MATLAB.startDebuggerAutomatically": true,
-		"MATLAB.telemetry": false
+		"MATLAB.telemetry": false,
+		"editor.foldingStrategy": "indentation",
+		"editor.showFoldingControls": "always",
+		"editor.foldingMaximumRegions": 5000,
+		"[matlab]": {
+			"editor.foldingStrategy": "indentation",
+			"editor.showFoldingControls": "always",
+			"editor.foldingMaximumRegions": 5000
+		}
 	},
 	"launch": {
 		"version": "0.2.0",
