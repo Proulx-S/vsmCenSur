@@ -98,6 +98,55 @@ The hang appears to be caused by MATLAB getting stuck in a computation loop, par
 **Current**: Enhanced diagnostic monitoring with pattern recognition
 **Future**: Predictive monitoring based on historical patterns
 
+## Alternative Solution: VS Code Server Approach (August 2025)
+
+### Problem Identification
+**Issue**: Cursor server has conflicting MATLAB extension (`chrisatwindsurf.language-matlab-1.3.3-universal`) preventing proper MATLAB launch
+**Discovery**: VS Code server has official MathWorks extension (`mathworks.language-matlab-1.3.4`) installed and working
+
+### Solution Strategy
+**Approach**: Use VS Code server instead of Cursor server for remote development
+**Method**: Configure Cursor to connect to VS Code server while maintaining local Cursor interface
+**Benefits**:
+- Official MathWorks MATLAB extension support
+- No conflicting extensions
+- Better stability for MATLAB operations
+- Same local Cursor experience
+
+### Configuration Changes
+**Files Modified**:
+1. `.vscode/settings.json` - Added VS Code server configuration
+2. `vsmCenSur.code-workspace` - Updated workspace settings
+
+**Key Settings Added**:
+```json
+{
+    "remote.SSH.serverInstallPath": "~/.vscode-server",
+    "remote.SSH.defaultExtensions": [
+        "mathworks.language-matlab"
+    ]
+}
+```
+
+### Implementation Steps
+1. **Disconnect**: Close current Cursor remote connection
+2. **Configure**: Apply new settings pointing to VS Code server
+3. **Reconnect**: Reconnect through Cursor to use VS Code server
+4. **Test**: Verify MATLAB launch and code folding functionality
+
+### Expected Benefits
+- **Eliminate Extension Conflicts**: No more `chrisatwindsurf` extension conflicts
+- **Official Extension Support**: Full MathWorks MATLAB extension features
+- **Better Stability**: VS Code server may be more stable for MATLAB
+- **Improved Code Folding**: Proper `%%` section folding support
+- **Reduced Hanging**: Official extension should have fewer resource issues
+
+### Fallback Plan
+If VS Code server approach doesn't work:
+1. Return to Cursor server with enhanced monitoring
+2. Use diagnostic reports for manual intervention
+3. Continue with optimized settings and regular restarts
+
 ## Evidence Collection Timeline
 
 ### Hang #1: July 3, 2025 - 14:57:46 PDT
@@ -239,16 +288,21 @@ Hang #2:
 ## Recommended Solutions
 
 ### Immediate Actions
-1. **Use Enhanced Monitoring**: Run `./enhanced_monitor.sh start` during coding sessions
-2. **Apply Optimized Settings**: Use the new MATLAB extension configuration
-3. **Manual Intervention**: Use diagnostic reports to make informed decisions
-4. **Regular Restarts**: Restart Cursor every 2-3 hours as preventive measure
+1. **Try VS Code Server Approach**: Switch to VS Code server for better MATLAB support
+2. **Use Enhanced Monitoring**: Run `./enhanced_monitor.sh start` during coding sessions
+3. **Apply Optimized Settings**: Use the new MATLAB extension configuration
+4. **Manual Intervention**: Use diagnostic reports to make informed decisions
+5. **Regular Restarts**: Restart Cursor every 2-3 hours as preventive measure
 
 ### VS Code/Cursor Settings
 ```json
 {
     "remote.SSH.useLocalServer": false,
     "remote.SSH.showLoginTerminal": true,
+    "remote.SSH.serverInstallPath": "~/.vscode-server",
+    "remote.SSH.defaultExtensions": [
+        "mathworks.language-matlab"
+    ],
     "matlab.matlabConnectionTiming": "onDemand",
     "matlab.linterConfig": "disabled",
     "matlab.linting.enabled": false,
@@ -259,7 +313,7 @@ Hang #2:
 ```
 
 ### Extension Management
-- Use official MathWorks MATLAB extension
+- Use official MathWorks MATLAB extension via VS Code server
 - Monitor extension memory usage with enhanced monitoring
 - Generate diagnostic reports for pattern analysis
 - Restart Cursor every 2-3 hours
@@ -290,28 +344,31 @@ Cursor/VS Code server experiences memory leaks in extension host processes, lead
 ## Next Steps
 
 ### Evidence Collection Plan
-1. **Use Enhanced Monitoring**: Run `./enhanced_monitor.sh start` during all coding sessions
-2. **Document Each Hang**: Use `./simple_log_collector.sh` immediately when hangs occur
-3. **Generate Diagnostic Reports**: Use `./enhanced_monitor.sh report` for detailed analysis
-4. **Track Patterns**: Note timing, duration, and system state
-5. **Test Solutions**: Monitor effectiveness of optimized settings
-6. **Weekly Review**: Update this document with new findings
+1. **Test VS Code Server Approach**: Try switching to VS Code server for MATLAB support
+2. **Use Enhanced Monitoring**: Run `./enhanced_monitor.sh start` during all coding sessions
+3. **Document Each Hang**: Use `./simple_log_collector.sh` immediately when hangs occur
+4. **Generate Diagnostic Reports**: Use `./enhanced_monitor.sh report` for detailed analysis
+5. **Track Patterns**: Note timing, duration, and system state
+6. **Test Solutions**: Monitor effectiveness of optimized settings
+7. **Weekly Review**: Update this document with new findings
 
 ### Success Metrics
 - Reduce hang frequency to <1 per day
 - Reduce hang duration to <5 seconds
 - Eliminate extension host memory leaks
-- Maintain stable Cursor server operation
+- Maintain stable server operation (Cursor or VS Code)
+- Successful MATLAB launch and code folding
 
 ## File Structure
 - **Debug Logs**: `/home/sebp/vscode_debug_logs/debug_YYYYMMDD_HHMMSS.txt`
 - **Monitoring Scripts**: `./vscode_monitor.sh`, `./enhanced_monitor.sh`, `./simple_log_collector.sh`
 - **Analysis Document**: This file (`MATLAB_HANG_ANALYSIS.md`)
 - **Configuration**: `.vscode/settings.json` (optimized MATLAB settings)
+- **Workspace**: `vsmCenSur.code-workspace` (VS Code server configuration)
 
 ## Contact Information
 - **User**: sebp@takoyaki
 - **Environment**: Remote-SSH, Linux 6.11.0-1022-oem
 - **Cursor Version**: Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850
 - **MATLAB Version**: R2024b
-- **MATLAB Extension**: mathworks.language-matlab-1.3.4 
+- **MATLAB Extension**: mathworks.language-matlab-1.3.4 (VS Code server) 

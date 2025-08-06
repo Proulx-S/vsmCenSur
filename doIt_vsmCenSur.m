@@ -860,6 +860,8 @@ end
         AreaResp = ( size(wVal,2).*mean(wVal-mean(tVal,2),2) + size(zVal,2).*mean(zVal-mean(tVal,2),2) ) ./ mean(wVal-mean(tVal,2),2);
         AreaResp = permute(AreaResp,[2 1 3 4]);
         VelResp  = permute(mean(wVal,2),[2 1 3 4]);
+
+        whos tt AreaResp VelResp AreaTsResp VelTsResp Uresp Vresp Vts UtsResp AreaTsResp VelTsResp 
         
         figure('WindowStyle','docked');
         plot(tt,AreaResp);
