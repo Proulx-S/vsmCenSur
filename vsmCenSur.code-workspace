@@ -12,28 +12,6 @@
 	],
 	"settings": {
 		"MATLAB.startDebuggerAutomatically": true,
-		"MATLAB.telemetry": false,
-		"editor.foldingStrategy": "auto",
-		"editor.showFoldingControls": "always",
-		"editor.foldingMaximumRegions": 5000,
-		"[matlab]": {
-			"editor.foldingStrategy": "language",
-			"editor.showFoldingControls": "always",
-			"editor.foldingMaximumRegions": 5000
-		},
-		"remote.SSH.serverInstallPath": "~/.vscode-server",
-		"remote.SSH.defaultExtensions": [
-			"mathworks.language-matlab"
-		],
-		"matlab.matlabConnectionTiming": "onDemand",
-		"matlab.linterConfig": "disabled",
-		"matlab.linting.enabled": false,
-		"matlab.languageServer.syntaxValidation": false,
-		"matlab.languageServer.semanticValidation": false,
-		"matlab.languageServer.indexWorkspace": false
-	},
-	"launch": {
-		"version": "0.2.0",
-		"configurations": []
+		"MATLAB.telemetry": false
 	}
 }

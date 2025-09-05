@@ -1,0 +1,40 @@
+{
+    "editor.foldingStrategy": "indentation",
+    "editor.showFoldingControls": "always",
+    "editor.foldingMaximumRegions": 5000,
+    "editor.foldingHighlight": true,
+    "editor.foldingImportsByDefault": false,
+    "[matlab]": {
+        "editor.foldingStrategy": "indentation",
+        "editor.showFoldingControls": "always",
+        "editor.foldingMaximumRegions": 5000,
+        "editor.foldingHighlight": true,
+        "editor.wordWrap": "off",
+        "editor.rulers": [],
+        "editor.minimap.enabled": true,
+        "editor.folding": true,
+        "editor.foldingImportsByDefault": false
+    },
+    "MATLAB.startDebuggerAutomatically": true,
+    "MATLAB.telemetry": false,
+    "files.associations": {
+        "*.m": "matlab"
+    },
+    "matlab.matlabConnectionTiming": "onDemand",
+    "matlab.linterConfig": "disabled",
+    "matlab.linting.enabled": false,
+    "matlab.linting.run": "never",
+    "matlab.languageServer.enabled": true,
+    "matlab.languageServer.folding": true,
+    "matlab.languageServer.syntaxValidation": false,
+    "matlab.languageServer.semanticValidation": false,
+    "matlab.languageServer.indexWorkspace": false,
+    "matlab.languageServer.snippetIgnoreList": "For Loop;If Statement;If-Else Statement;While Loop;Try-Catch Statement;Switch Statement;Function Definition;Class Definition;Parallel For Loop;SPMD block",
+    "remote.SSH.useLocalServer": false,
+    "remote.SSH.showLoginTerminal": true,
+    "remote.SSH.useExecServer": false,
+    "remote.SSH.serverInstallPath": "~/.vscode-server",
+    "remote.SSH.defaultExtensions": [
+        "mathworks.language-matlab"
+    ]
+} 

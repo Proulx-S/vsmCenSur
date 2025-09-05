@@ -369,6 +369,64 @@ Cursor/VS Code server experiences memory leaks in extension host processes, lead
 ## Contact Information
 - **User**: sebp@takoyaki
 - **Environment**: Remote-SSH, Linux 6.11.0-1022-oem
+- **Local Client**: Cursor (not VS Code) - user always interacts through local Cursor instance
+- **Remote Server**: Cursor server or VS Code server (to be determined)
 - **Cursor Version**: Stable-5b19bac7a947f54e4caa3eb7e4c5fbf832389850
-- **MATLAB Version**: R2024b
+- **MATLAB Version**: R2025a
 - **MATLAB Extension**: mathworks.language-matlab-1.3.4 (VS Code server) 
+
+## Current Setup Clarification (August 5, 2025)
+
+### User Environment
+- **Local Client**: Cursor (not VS Code) - user always interacts through local Cursor instance
+- **Remote Connection**: SSH to remote server
+- **Remote Server Type**: To be determined - either cursor-server or vscode-server
+- **Goal**: Determine which server Cursor is using and optimize MATLAB extension setup
+
+### Key Question
+Whether the local Cursor instance is connecting to:
+1. **cursor-server** (with problematic chrisatwindsurf extension)
+2. **vscode-server** (with official mathworks extension)
+
+This will determine the best approach for resolving MATLAB hanging and graphics issues.
+
+## Critical Finding: Official MathWorks Extension Availability (August 5, 2025)
+
+### Extension Availability Analysis
+- **cursor-server**: No official MathWorks MATLAB extension available
+- **vscode-server**: Has official `mathworks.language-matlab-1.3.4` extension
+- **Third-party extension**: `chrisatwindsurf.language-matlab-1.3.3-universal` was problematic
+
+### Decision: Switch to vscode-server
+**Rationale**: 
+- Official MathWorks MATLAB extension is only available on vscode-server
+- Third-party extension on cursor-server was causing hanging issues
+- vscode-server provides better MATLAB support and stability
+
+### Implementation Plan
+1. **Configure Cursor** to use vscode-server for remote development
+2. **Test MATLAB functionality** with official extension
+3. **Monitor for hanging issues** with new setup
+4. **Verify graphics display** functionality 
+
+## Configuration Discovery (August 5, 2025)
+
+### Current Configuration Status
+- ✅ **Workspace configured for vscode-server**: `vsmCenSur.code-workspace` has correct settings
+- ✅ **Settings configured for vscode-server**: `.vscode/settings.json` has correct settings
+- ❌ **Cursor still using cursor-server**: Despite configuration, Cursor connects to cursor-server
+- ✅ **vscode-server has official extension**: `mathworks.language-matlab-1.3.4` available
+
+### Key Settings Found
+```json
+{
+    "remote.SSH.serverInstallPath": "~/.vscode-server",
+    "remote.SSH.defaultExtensions": ["mathworks.language-matlab"]
+}
+```
+
+### Solution Required
+**Force Cursor to use vscode-server** by:
+1. **Disconnect current session**
+2. **Clear cursor-server cache** or force vscode-server connection
+3. **Reconnect with vscode-server** 
