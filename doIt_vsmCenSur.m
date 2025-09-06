@@ -665,25 +665,32 @@ acq = 'vfMRI_dflt_none';
 task = 'task_50sPrd5sDur';
 roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
 
+tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+hFol   = {}; hAol   = {}; hIol   = {};
+hFresp = {}; hAresp = {}; hTresp = {};
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef_flat'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
 
-tilingMagInflow = plotUL3(roi{S}.(acqMag).(task).vessel,'base'     ,[100 1500],4);
-[hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acqMag).(task).vessel,tilingMagInflow.sub.right.hA);
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_2'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_2',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respArea',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respVel',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+
+[roi,hF,hA,rCond] = smrRoi2(rCond,'respSurVox',roi,H)
 % threshOL(hIol,'actQ_dilate1',0);
-adjPoly(hIol,'original','k',-1);
-adjPoly(hIol,'dilate1','w',1);
-venc = 14;
-acqPhs = ['vfMRIpc_dflt_pcVenc' num2str(venc) 'ap'];
-tilingPhs      = plotUL3(roi{S}.(acqPhs).(task).vessel,'basePhase'     ,[]        ,4);
-tilingPhs_tsAv = plotUL3(roi{S}.(acqPhs).(task).vessel,'basePhase_tsAv',[]        ,4);
-tilingMag      = plotUL3(roi{S}.(acqPhs).(task).vessel,'base'     ,[100 1500],4);
-[hFol,hAol,hIol] = plotOL( [],{'coef'},roi{S}.(acqPhs).(task).vessel,tilingMag.sub.right.hA);
-vesselTmp = roi{S}.(acqPhs).(task).vessel;
-for i = 1:length(vesselTmp)
-    vesselTmp(i).im = [];
-    vesselTmp(i).im.bckgrndMask = roi{S}.(acqPhs).(task).vessel(i).im.basePhase;
-    vesselTmp(i).im.bckgrndMask.im = roi{S}.(acqPhs).(task).vessel(i).im.basePhase.bias.mask;
-end
-tilingBckgrndMask = plotUL3(vesselTmp,'bckgrndMask'     ,[],4);
+
+
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%
 
