@@ -1,6 +1,8 @@
 clear all
 close all
 
+
+
 % dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
 dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile20250630.mat'; % after reprocessing of vfMRIpc
 %%%%%%%%%%%%%%%%%%%%%
@@ -305,32 +307,11 @@ end
 
 
 
-% Save all
-% winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
-% K;
-% filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
-filename = fullfile(pwd,'workScript_tmp.mat');
-disp(['saving ' filename])
-save(filename,'-v7.3')
-else
-% Load all
-% filename = 'results20250505_K4-6_winSz19tPts.mat';
-% filename = 'results20250505_K3-5_winSz24tPts.mat';
-% filename = 'results20250505_K3-4_winSz26tPts.mat';
-% filename = 'results20250505_K3-5_winSz30tPts.mat';
-% filename = 'results20250508_K4-5_winSz28tPts.mat';
-filename = fullfile(pwd,'workScript_tmp.mat');
-disp(['loading ' filename])
-load(filename)
-end
-
-
-
 %%%%%%%%%%%%%%%
 %% Get ROI data
 % note: S=6 does not have the same matrix size for vfMRIpc vs vfMRIinflow, screwing up extraction of rois from vfMRIpc since they are defined using vfMRIinflow
 roi = cell(size(subList));
-for S = 1;%size(subList,1)%:size(subList,1)
+for S = 2%1:size(subList,1)%:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
     taskTmp = fields(rCond{S}.vfMRI_dflt_none); taskTmp = taskTmp(contains(taskTmp,'task_'));
     label = rCond{S}.vfMRI_dflt_none.(taskTmp{1}).volAnat.label.calcarineVessel;
@@ -338,8 +319,9 @@ for S = 1;%size(subList,1)%:size(subList,1)
     for A = 1:length(acqList)
         acq  = acqList{A};
         % acq  = 'vfMRI_dflt_none';
-        if ~isfield(rCond{S},acq)  ; continue; end
-        if ~contains(acq,{'vfMRI'}); continue; end
+        if ~isfield( rCond{S},acq )  ; continue; end
+        if ~contains(acq,{'vfMRI'  }); continue; end
+        if  contains(acq,{'vfMRIpc'}); continue; end
         for T = 1:length(taskList)
             task = taskList{T};
             if ~isfield(rCond{S}.(acq),task); continue; end
@@ -531,13 +513,13 @@ for S = 1;%size(subList,1)%:size(subList,1)
             [roi{S}.(acq).(task).vessel.R]      = deal(rCond{S}.(acq).(task).volResp.mag.respCat.R);
             [roi{S}.(acq).(task).vessel.nTrial] = deal(rCond{S}.(acq).(task).volResp.mag.respCat.xMat.nTrial');
 
-            % modify roi
-            roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
+            % % modify roi
+            % roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2'});
 
-            % % summarize rois (vox2roi)
-            % vessels = roi{S}.(acq).(task).vessel;
-            % vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
-            % roi{S}.(acq).(task).vessels = mergeRoi(vessels);
+            % % % summarize rois (vox2roi)
+            % % vessels = roi{S}.(acq).(task).vessel;
+            % % vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
+            % % roi{S}.(acq).(task).vessels = mergeRoi(vessels);
 
 
             % add manual annotations
@@ -658,36 +640,68 @@ for S = 1;%size(subList,1)%:size(subList,1)
 end
 %% %%%%%%%%%%%%
 
+
+
+% Save all
+% winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
+% K;
+% filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
+filename = fullfile(pwd,'workScript_tmp.mat');
+disp(['saving ' filename])
+save(filename,'-v7.3')
+else
+% Load all
+% filename = 'results20250505_K4-6_winSz19tPts.mat';
+% filename = 'results20250505_K3-5_winSz24tPts.mat';
+% filename = 'results20250505_K3-4_winSz26tPts.mat';
+% filename = 'results20250505_K3-5_winSz30tPts.mat';
+% filename = 'results20250508_K4-5_winSz28tPts.mat';
+filename = fullfile(pwd,'workScript_tmp.mat');
+disp(['loading ' filename])
+load(filename)
+end
+
+return
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Single-vessel responses
 %%%%%%%%%%%%%%%%%%%%%%%%%%
-S=1;
 acq = 'vfMRI_dflt_none';
 task = 'task_50sPrd5sDur';
-roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+    subIndList(end+1) = S;
+end
 
+S=subIndList(2)
 tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 hFol   = {}; hAol   = {}; hIol   = {};
 hFresp = {}; hAresp = {}; hTresp = {};
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'roi_original'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'roi_tissue'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+
 [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'coef thresholded';
 [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef_flat'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'coef';
+% set(hAol{end},'CLim',[-1 1].*max(max(abs(cell2mat(get(hAol{end},'CLim'))))));
 
 [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'svSpace_1';
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_1';
 [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_2'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1);
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_2',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'svSpace_2';
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_2',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_2';
 
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respArea',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respVel',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respArea',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respArea';
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respVel',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respVel';
 
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respSurVox';
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
 
-[roi,hF,hA,rCond] = smrRoi2(rCond,'respSurVox',roi,H)
 % threshOL(hIol,'actQ_dilate1',0);
 
 
