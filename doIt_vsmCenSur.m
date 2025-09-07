@@ -496,12 +496,13 @@ for S = 1;%size(subList,1)%:size(subList,1)
             end
 
 
+            % modify roi
+            roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'peakVox' 'dilate1' 'dilate1p5' 'dilate2' 'tissue'});
+            % roi{S}.(acq).(task).vessel = modifyRoi(roi{S}.(acq).(task).vessel,{'tissue'});
+
+
+
             for i  = 1:length(roi{S}.(acq).(task).vessel)
-                % tissue mask
-                imBase    = roi{S}.(acq).(task).vessel(i).im.base.im;
-                [bckgrndMask,f] = getRoiBckgrndMask(imBase,0);
-                roi{S}.(acq).(task).vessel(i).polyMask{end+1}  = bckgrndMask;
-                roi{S}.(acq).(task).vessel(i).polyLabel{end+1} = 'tissue';
                 % remove background phase if pc data
                 if contains(acq,'vfMRIpc')
                     imPhsBase = roi{S}.(acq).(task).vessel(i).im.basePhase.im;
