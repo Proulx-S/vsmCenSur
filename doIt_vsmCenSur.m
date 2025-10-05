@@ -2,7 +2,6 @@ clear all
 close all
 
 
-
 % dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
 dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile20250630.mat'; % after reprocessing of vfMRIpc
 %%%%%%%%%%%%%%%%%%%%%
@@ -661,7 +660,46 @@ disp(['loading ' filename])
 load(filename)
 end
 
+
+
 return
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Quick replot for Jon
+if 0
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+S = 1
+roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+
+
+tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+
+hFol   = {}; hAol   = {}; hIol   = {};
+hFresp = {}; hAresp = {}; hTresp = {};
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'coef thresholded';
+
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respArea';
+
+figure('MenuBar','none','ToolBar','none');
+plot(hAresp{2}(2).Children.XData,hAresp{2}(2).Children.YData)
+xlabel('time (s)')
+ylabel('MR signal')
+title('sub1, artery 2, peak voxel response')
+saveas(gcf,'sub1_art2_peakVoxResp','fig')
+
+figure('MenuBar','none','ToolBar','none');
+plot(hAresp{2}(2).Children.XData,hAresp{2}(7).Children.YData)
+xlabel('time (s)')
+ylabel('MR signal')
+title('sub1, vein 1, peak voxel response')
+saveas(gcf,'sub1_vein1_peakVoxResp','fig')
+end
+%% %%%%%%%%%%%%%%%%%%%%
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
