@@ -664,7 +664,7 @@ end
 
 return
 
-
+figure('MenuBar','none','ToolBar','none');
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
