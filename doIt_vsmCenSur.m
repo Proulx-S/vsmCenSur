@@ -664,6 +664,60 @@ end
 
 return
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Get age and sex from dcm files
+age = cell(size(rCond));
+sex = cell(size(rCond));
+for r = 1:length(rCond)
+    tmpField = fields(rCond{r}.vfMRI_dflt_none);
+    tmpField = tmpField{find(contains(tmpField,'task_'),1,'first')};
+    dcmDir = fileparts(rCond{r}.vfMRI_dflt_none.(tmpField).dirsOrig.bids);
+    tmp = dir(fullfile(dcmDir,'dcm/*'));
+    if isempty(tmp)
+        tmp = dir(fullfile(dcmDir,'dcm2/*'));
+    end
+    dcmDir = dir(fullfile(tmp(1).folder,tmp(1).name));
+    tmp = contains({dcmDir.name},'dcm');
+    if nnz(tmp)==1
+        dcmDir = dir(fullfile(dcmDir(tmp).folder,dcmDir(tmp).name));
+    end
+    tmp = contains({dcmDir.name},'Terra-');
+    if nnz(tmp)==1
+        dcmDir = dir(fullfile(dcmDir(tmp).folder,dcmDir(tmp).name));
+    end
+    tmp = contains({dcmDir.name},'MR.');
+    if any(tmp)
+        dcmInfo = dicominfo(fullfile(dcmDir(find(tmp,1,'first')).folder,dcmDir(find(tmp,1,'first')).name));
+    end
+    age{r} = dcmInfo.PatientAge;
+    sex{r} = dcmInfo.PatientSex;
+end
+age = str2double(replace(age,'Y',''));
+
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+age = age(subIndList);
+sex = sex(subIndList);
+std(age)
+mean(age)
+min(age)
+max(age)
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
 figure('MenuBar','none','ToolBar','none');
 
 
