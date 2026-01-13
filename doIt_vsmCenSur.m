@@ -1,5 +1,6 @@
 clear all
 close all
+% figure('MenuBar','none','Toolbar','none')
 
 
 % dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
@@ -310,7 +311,7 @@ end
 %% Get ROI data
 % note: S=6 does not have the same matrix size for vfMRIpc vs vfMRIinflow, screwing up extraction of rois from vfMRIpc since they are defined using vfMRIinflow
 roi = cell(size(subList));
-for S = 2%1:size(subList,1)%:size(subList,1)
+for S = 1:size(subList,1)%:size(subList,1)
     disp(['extracting ROI data: ' subList{S}])
     taskTmp = fields(rCond{S}.vfMRI_dflt_none); taskTmp = taskTmp(contains(taskTmp,'task_'));
     label = rCond{S}.vfMRI_dflt_none.(taskTmp{1}).volAnat.label.calcarineVessel;
@@ -353,6 +354,7 @@ for S = 2%1:size(subList,1)%:size(subList,1)
                     'vesselness'
                     'ts'
                     'resp'
+                    'resp2'
                     'respSd'
                     'respF'
                     'respP'
@@ -451,6 +453,7 @@ for S = 2%1:size(subList,1)%:size(subList,1)
                 %         end
                 %     end
                 % end
+                fTmp = [rCond{S}.(acq).(task).volResp.mag.respRun.stats];
                 im = {
                     fBase
                     fBasePolyRun
@@ -459,6 +462,7 @@ for S = 2%1:size(subList,1)%:size(subList,1)
                     label.fBaseList{contains(b,'vesselness.nii')}
                     rCond{S}.(acq).(task).fPreprocList
                     char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fResp)
+                    [fTmp.fResp]'
                     char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fRespSd)
                     char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF)
                     char(rCond{S}.(acq).(task).volResp.mag.respCat.stats.fCondF_pVal)
@@ -645,7 +649,7 @@ end
 % winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
 % K;
 % filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
-filename = fullfile(pwd,'workScript_tmp.mat');
+filename = fullfile(pwd,'workScript_tmp2.mat');
 disp(['saving ' filename])
 save(filename,'-v7.3')
 else
@@ -655,7 +659,7 @@ else
 % filename = 'results20250505_K3-4_winSz26tPts.mat';
 % filename = 'results20250505_K3-5_winSz30tPts.mat';
 % filename = 'results20250508_K4-5_winSz28tPts.mat';
-filename = fullfile(pwd,'workScript_tmp.mat');
+filename = fullfile(pwd,'workScript_tmp2.mat');
 disp(['loading ' filename])
 load(filename)
 end
@@ -712,13 +716,40 @@ max(age)
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+%%%%%%%%%%%%%%%%%%%%
+%% Get behavior data
+%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+bhvr = rCond(subIndList);
+for s = 1:size(bhvr,1)
+    bhvr{s} = bhvr{s}.vfMRI_dflt_none.task_50sPrd5sDur.bhvr;
+end
+for s = 1:size(bhvr,1)
+    tmp={bhvr{s}.percFalsePositive};
+    n(s) = length(tmp);
+    tmp=replace(tmp,'%',''); tmp=strrep(tmp,'	',''); tmp=strrep(tmp,' ','');
+    fp{s} = str2double(tmp);
+    fpAv(s) = mean(fp{s});
+    fpEr(s) = std(fp{s});
+    tmp={bhvr{s}.percTruePositive};
+    tmp=replace(tmp,'%',''); tmp=strrep(tmp,'	',''); tmp=strrep(tmp,' ','');
+    tp{s} = str2double(tmp);
+    tpAv(s) = mean(tp{s});
+    tpEr(s) = std(tp{s});
+end
 
 
 
+%% %%%%%%%%%%%%%%%%%
 
 
 
-figure('MenuBar','none','ToolBar','none');
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -764,11 +795,20 @@ task = 'task_50sPrd5sDur';
 subIndList = [];
 for S = 1:size(subList,1)
     if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    % vesselRun = repmat(roi{S}.(acq).(task).vessel,[1 2]);
+    % for v = 1:size(vesselRun,1)
+    %     for r = 1:size(roi{S}.(acq).(task).vessel(v).im.resp2,2)
+    %         vesselRun(v,r).im.resp.im = roi{S}.(acq).(task).vessel(v).im.resp2.im{r};
+    %     end
+    % end
+    % roi{S}.(acq).(task).vessel2 = getVesselResp(vesselRun);
     roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
     subIndList(end+1) = S;
 end
 
-S=subIndList(2)
+S=subIndList(3)
+rCond{S}.(acq).(task).bhvr.percTruePositive
+
 tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 hFol   = {}; hAol   = {}; hIol   = {};
 hFresp = {}; hAresp = {}; hTresp = {};
@@ -793,6 +833,13 @@ adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{e
 
 [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respSurVox';
 [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
+
+
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel2(:,1),tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel2(:,2),tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel2(:,1),tiling.sub.right.hA); hFresp{end}.Name = 'respSurVox';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel2(:,2),tiling.sub.right.hA); hFresp{end}.Name = 'respSurVox';
+
 
 % threshOL(hIol,'actQ_dilate1',0);
 
