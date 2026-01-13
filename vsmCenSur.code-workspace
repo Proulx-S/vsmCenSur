@@ -4,10 +4,10 @@
 			"path": "."
 		},
 		{
-			"path": "../../tools/vasomoTools"
+			"path": "../../tools/util"
 		},
 		{
-			"path": "../../tools/util"
+			"path": "../../../../home/sebp/tools/vasomoTools"
 		}
 	],
 	"settings": {
