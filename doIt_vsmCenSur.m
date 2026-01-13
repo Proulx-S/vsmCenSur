@@ -749,6 +749,44 @@ end
 %% %%%%%%%%%%%%%%%%%
 
 
+%%%%%%%%%%%%%%%%%%%%%%
+%% Get FA and TxRefAmp
+%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+
+dirsOrig = rCond(subIndList);
+for s = 1:size(dirsOrig,1)
+    [~,b,c] = fileparts(dirsOrig{s}.vfMRI_dflt_none.task_50sPrd5sDur.fList);    
+    dirsOrig{s} = fullfile(dirsOrig{s}.vfMRI_dflt_none.task_50sPrd5sDur.dirsOrig.bids,'func',replace(strcat(b,c),'.nii.gz','.json'));
+    if isempty(dir(dirsOrig{s}{1}))
+        dirsOrig{s} = replace(dirsOrig{s},'_angio.json','*_angio.json');
+    end
+end
+
+flipAngle = cell(size(dirsOrig));
+txRefAmp = cell(size(dirsOrig));
+for s = 1:size(dirsOrig,1)
+    flipAngle{s} = nan(size(dirsOrig{s}));
+    txRefAmp{s}  = nan(size(dirsOrig{s}));
+    for r = 1:size(dirsOrig{s},1)
+        tmp = dir(dirsOrig{s}{r});
+        jsonData = jsondecode(fileread(fullfile(tmp.folder,tmp.name)));
+        flipAngle{s}(r) = jsonData.FlipAngle;
+        txRefAmp{s}(r) = jsonData.TxRefAmp;
+    end
+    flipAngle{s} = unique(flipAngle{s});
+    txRefAmp{s} = unique(txRefAmp{s});
+end
+
+
+
+%% %%%%%%%%%%%%%%%%%%%
 
 
 
