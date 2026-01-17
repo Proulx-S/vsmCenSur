@@ -823,7 +823,7 @@ end
 %% %%%%%%%%%%%%%%%%%%%%
 end
 
-return
+
 
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -862,6 +862,8 @@ implay(fullTs(:,:,:))
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
+return
+
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Prepare roi and rCond for re-preprocessing
@@ -880,8 +882,8 @@ for S = 1:size(subIndList,2)
     roi2{S}.(acq).(task).rCond = rCond{subIndList(S)}.(acq).(task);
     subList2{S} = subList{subIndList(S)};
 end
-roi = roi2;
-subList = subList2;
+roi = roi2';
+subList = subList2';
 save dataPointers roi subList acq task
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
