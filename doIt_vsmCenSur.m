@@ -825,6 +825,7 @@ end
 
 return
 
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% QA motion correction on vessels
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -858,13 +859,32 @@ earlyLateTs = fullTs(:,:,[1:20 end-20:end],:);
 
 implay(earlyLateTs(:,:,:))
 implay(fullTs(:,:,:))
-
-
-
-
-
-
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
+
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Prepare roi and rCond for re-preprocessing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+roi2 = cell(size(subIndList));
+subList2 = cell(size(subIndList));
+for S = 1:size(subIndList,2)
+    roi2{S}.(acq).(task) = roi{subIndList(S)}.(acq).(task);
+    roi2{S}.(acq).(task).rCond = rCond{subIndList(S)}.(acq).(task);
+    subList2{S} = subList{subIndList(S)};
+end
+roi = roi2;
+subList = subList2;
+save dataPointers roi subList acq task
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
 
 
 if 0
