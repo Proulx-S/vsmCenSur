@@ -474,7 +474,7 @@ for S = 1:size(subList,1)%:size(subList,1)
                     };
             end
             cropSz = 10;
-            roi{S}.(acq).(task).vessel = getVesselRoi2(label,imField,im,cropSz);
+            [roi{S}.(acq).(task).vessel,roi{S}.(acq).(task).vesselRegion] = getVesselRoi2(label,imField,im,[cropSz 0]);
             [roi{S}.(acq).(task).vessel.coefAdjFlag] = deal(coefAdjFlag);
             for i = 1:length(roi{S}.(acq).(task).vessel)
                 roi{S}.(acq).(task).vessel(i).im.resp.dt = rCond{S}.(acq).(task).volResp.mag.respCat.param.trDecon;
@@ -649,7 +649,7 @@ end
 % winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
 % K;
 % filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
-filename = fullfile(pwd,'workScript_tmp2.mat');
+filename = fullfile(pwd,'workScript_20260116.mat');
 disp(['saving ' filename])
 save(filename,'-v7.3')
 else
@@ -659,17 +659,16 @@ else
 % filename = 'results20250505_K3-4_winSz26tPts.mat';
 % filename = 'results20250505_K3-5_winSz30tPts.mat';
 % filename = 'results20250508_K4-5_winSz28tPts.mat';
-filename = fullfile(pwd,'workScript_tmp2.mat');
+% filename = fullfile(pwd,'workScript_tmp2.mat');
+filename = fullfile(pwd,'workScript_20260116.mat');
 disp(['loading ' filename])
 load(filename)
 end
 
 
 
-return
 
-
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Get age and sex from dcm files
 age = cell(size(rCond));
@@ -714,8 +713,9 @@ mean(age)
 min(age)
 max(age)
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
 
-
+if 0
 %%%%%%%%%%%%%%%%%%%%
 %% Get behavior data
 %%%%%%%%%%%%%%%%%%%%
@@ -747,8 +747,9 @@ end
 
 
 %% %%%%%%%%%%%%%%%%%
+end
 
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%
 %% Get FA and TxRefAmp
 %%%%%%%%%%%%%%%%%%%%
@@ -783,13 +784,10 @@ for s = 1:size(dirsOrig,1)
     flipAngle{s} = unique(flipAngle{s});
     txRefAmp{s} = unique(txRefAmp{s});
 end
-
-
-
 %% %%%%%%%%%%%%%%%%%%%
+end
 
-
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%
 %% Quick replot for Jon
 if 0
@@ -823,8 +821,48 @@ title('sub1, vein 1, peak voxel response')
 saveas(gcf,'sub1_vein1_peakVoxResp','fig')
 end
 %% %%%%%%%%%%%%%%%%%%%%
+end
+
+return
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% QA motion correction on vessels
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+
+s = 1; % perferct all over
+s = 2; % somewhate rigid movement mostly in the first and 2nd run
+s = 3; % somewhate rigid movement mostly in the first and 2nd run
+S=subIndList(s)
+tiling = plotUL3(roi{S}.(acq).(task).vesselRegion,'base'     ,[100 1500],4);
+
+fullTs = squeeze(cat(5,roi{S}.(acq).(task).vesselRegion.im.ts.im{:}));
+COM = cat(1,roi{S}.(acq).(task).vesselRegion.com{:}); COM = COM - [roi{S}.(acq).(task).vesselRegion.cropXlim(1) roi{S}.(acq).(task).vesselRegion.cropYlim(1)] + 1;
+for c = 1:size(COM,1)
+    fullTs(round(COM(c,2)),round(COM(c,1)),:,:) = 0;
+end
+fullTs = uint8(fullTs./max(fullTs(:)).*255);
+sz = size(fullTs); sz(3) = 1;
+fullTs = cat(3,fullTs,repmat(uint8(128),sz));
+earlyLateTs = fullTs(:,:,[1:20 end-20:end],:);
+implay(earlyLateTs(:,:,:))
+implay(fullTs(:,:,:))
 
 
+
+
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Single-vessel responses
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -885,6 +923,8 @@ adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{e
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%
+end
+
 
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -986,8 +1026,8 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
-return
 
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore time series in transformed space (area)
 S=1;
@@ -1096,9 +1136,10 @@ for vs = 1:length(roi{S}.(acq).(task).vessel)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
 
 
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore roi with phase
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1272,6 +1313,8 @@ end
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%
+end
+
 
 return
 
@@ -1280,6 +1323,7 @@ if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore maps with afni
 %%%%%%%%%%%%%%%%%%%%%%%%%
+
 % acq = 'bold_dflt_none';
 acq = 'vfMRIpc_dflt_pcVenc7ap';  
 fAfni = fullfile(storageDir,workScript); if ~exist(fAfni,'dir'); mkdir(fAfni); end
@@ -1328,7 +1372,7 @@ fAfni
 end
 
 
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis -- of BOLD data
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1390,9 +1434,9 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
 
-
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Time-frequency analysis
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1454,13 +1498,11 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%
+end
 
 
 
-
-
-
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%
 %% Add mt to vessel roi
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -1483,12 +1525,15 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%
-
+end
 
 
 
 
 return
+
+
+
 
 % % summarize rois (vox2roi)
 % vessels = roi{S}.(acq).(task).vessel;
@@ -1498,8 +1543,9 @@ return
 % vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
 % roi{S}.(acq).(task).vessels = mergeRoi2(vessels);
 
-
+%%%%%%%%%%%%%%%%
 %% Summarize roi
+%%%%%%%%%%%%%%%%
 
 plotIt  = 1;
 saveIt  = 0;
@@ -1620,10 +1666,10 @@ hFfull = grpAvPlt2(roi,subList,acq,task,'psd_dilate1_actQ'         ,[]        ,[
          grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec','avVox-catVes');
 hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'bNa15sec','avVox-catVes');
 grpAvRePlt(hFfull,hFmd)
+%% %%%%%%%%%%%%%
 
 
 
-return
 
 
 
