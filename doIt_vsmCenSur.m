@@ -838,7 +838,11 @@ end
 
 s = 1; % perferct all over
 s = 2; % somewhate rigid movement mostly in the first and 2nd run
-s = 3; % somewhate rigid movement mostly in the first and 2nd run
+s = 3; % ok
+s = 4; % minimal possibly non-rigid movement
+s = 5; % some non-rigid movement particularly in one vessel on the left on the last run
+s = 6; % ok
+s = 7; % some movements, not clear if rigid
 S=subIndList(s)
 tiling = plotUL3(roi{S}.(acq).(task).vesselRegion,'base'     ,[100 1500],4);
 
@@ -851,6 +855,7 @@ fullTs = uint8(fullTs./max(fullTs(:)).*255);
 sz = size(fullTs); sz(3) = 1;
 fullTs = cat(3,fullTs,repmat(uint8(128),sz));
 earlyLateTs = fullTs(:,:,[1:20 end-20:end],:);
+
 implay(earlyLateTs(:,:,:))
 implay(fullTs(:,:,:))
 
