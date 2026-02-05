@@ -82,6 +82,7 @@ end
 %% %%%%%%%%%%%%%%%%%%
 
 
+
 if 0
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -305,6 +306,43 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Get number of censored frames
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+nCnsr = rCond(subIndList);
+for s = 1:size(nCnsr,1)
+    fList = nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd{contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-input')}; fList = strsplit(fList,' ')'; fList([1 end]) = []; fList = replace(fList,'[0..$]','');
+    if any(contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-CENSORTR'))
+        cnsrList = nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd{contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-CENSORTR')}; cnsrList = strsplit(cnsrList,' ')'; cnsrList = cellfun(@(x) str2num(x),strsplit(cnsrList{2},','),'UniformOutput',false); cnsrList = [cnsrList{:}];
+    else
+        cnsrList = [];
+    end
+    frame0 = 0;
+    tmp.nFrame = nan(size(fList))';
+    tmp.nCnsrFrames = nan(size(fList))';
+    for r = 1:length(fList)
+        tmp.nFrame(r) = MRIget(fList{r},'nt');
+        tmp.nCnsrFrames(r) = nnz(ismember(cnsrList,(0:tmp.nFrame(r)-1)+frame0));
+        frame0 = frame0 + tmp.nFrame(r);
+    end
+    nCnsr{s} = tmp;
+end
+nCnsr = [nCnsr{:}]';
+for s = 1:size(nCnsr,1)
+    nCnsr(s).prcntCnsr = nCnsr(s).nCnsrFrames./nCnsr(s).nFrame*100;
+    nCnsr(s).prcntCnsrTot = sum(nCnsr(s).nCnsrFrames)/sum(nCnsr(s).nFrame)*100;
+end
+nCnsr.prcntCnsr
+nCnsr.prcntCnsrTot
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %%%%%%%%%%%%%%%
@@ -645,6 +683,9 @@ end
 
 
 
+
+
+
 % Save all
 % winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
 % K;
@@ -787,6 +828,35 @@ end
 %% %%%%%%%%%%%%%%%%%%%
 end
 
+
+if 0
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Get polar coefficients adjustment
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    acq = 'vfMRI_dflt_none';
+    task = 'task_50sPrd5sDur';
+    subIndList = [];
+    for S = 1:size(subList,1)
+        if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+        subIndList(end+1) = S;
+    end
+    
+    hFig = rCond(subIndList);
+    for s = 1%:size(hFig,1)
+        hFig{s} = openfig(char(hFig{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_mainVector));
+    end
+    ax = findobj(hFig{s}.Children,'type','axes');
+    xlabel(ax,'SPM canon (coef)'); ylabel(ax,'SPM canon derivative (coef)');
+    % Prevent legend from updating with subsequent plot commands
+    set(get(ax,'Legend'),'AutoUpdate','off')
+    hLine = findobj(ax.Children,'type','Line');
+    plot(hLine(1).YData,flip(hLine(1).XData),'-r')
+
+
+    %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
+
+
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%
 %% Quick replot for Jon
@@ -862,7 +932,7 @@ implay(fullTs(:,:,:))
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
-return
+
 
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -888,6 +958,7 @@ save dataPointers roi subList acq task
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
+return
 
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%
