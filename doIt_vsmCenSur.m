@@ -306,6 +306,8 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Get number of censored frames
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -318,6 +320,7 @@ for S = 1:size(subList,1)
 end
 nCnsr = rCond(subIndList);
 for s = 1:size(nCnsr,1)
+    nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur
     fList = nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd{contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-input')}; fList = strsplit(fList,' ')'; fList([1 end]) = []; fList = replace(fList,'[0..$]','');
     if any(contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-CENSORTR'))
         cnsrList = nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd{contains(nCnsr{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.respCat.cmd,'-CENSORTR')}; cnsrList = strsplit(cnsrList,' ')'; cnsrList = cellfun(@(x) str2num(x),strsplit(cnsrList{2},','),'UniformOutput',false); cnsrList = [cnsrList{:}];
@@ -836,6 +839,7 @@ end
 %% %%%%%%%%%%%%%%%%%%%
 end
 
+return
 
 if 0
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -859,6 +863,35 @@ if 0
     set(get(ax,'Legend'),'AutoUpdate','off')
     hLine = findobj(ax.Children,'type','Line');
     plot(hLine(1).YData,flip(hLine(1).XData),'-r')
+
+
+    rCond{S}.(acq).(task).volResp.mag.respCat
+    rCond{S}.(acq).(task).volResp.mag.actCat.fIn
+    
+    
+    mriQval = MRIread(char(           rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal  ));
+    mriData =                         rCond{S}.(acq).(task).volResp.mag.actCat.fIn                  ; for d = 1:length(mriData); mriData{d} = MRIread(mriData{d}); end; mriData = [mriData{:}];
+    mriCoefAdj = MRIread(        char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj));    
+    mriCoef    = afni_getFitCoef(char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fStat        ));
+    data    = permute(mean(cat(5,mriData.vol),5),[4 1 2 3]);
+    coefAdj = permute(           mriCoefAdj.vol ,[4 1 2 3]);
+    coef    = permute(           mriCoef.vol    ,[4 1 2 3]);
+    data    = data(   :,mriQval.vol<0.05);
+    coefAdj = coefAdj(:,mriQval.vol<0.05);
+    coef    = coef(   :,mriQval.vol<0.05);
+
+    q1Idx = coefAdj(1,:)>0 & coefAdj(2,:)>0;
+    q2Idx = coefAdj(1,:)<0 & coefAdj(2,:)<0;
+    q3Idx = coefAdj(1,:)>0 & coefAdj(2,:)<0;
+    q4Idx = coefAdj(1,:)<0 & coefAdj(2,:)>0;
+
+    coef(:,q1Idx)
+
+
+
+    
+
+
 
 
     %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
