@@ -339,9 +339,17 @@ for s = 1:size(nCnsr,1)
     nCnsr(s).prcntCnsr = nCnsr(s).nCnsrFrames./nCnsr(s).nFrame*100;
     nCnsr(s).prcntCnsrTot = sum(nCnsr(s).nCnsrFrames)/sum(nCnsr(s).nFrame)*100;
 end
-nCnsr.prcntCnsr
-nCnsr.prcntCnsrTot
+nCnsr.prcntCnsr;
+nCnsr.prcntCnsrTot;
 
+% QA = rCond(subIndList);
+% for s = 1:size(nCnsr,1)
+%     QA{s} = QA{s}.vfMRI_dflt_none.QA;
+% end
+% QA = [QA{:}];
+% for s = 1:length(QA)
+%     openfig(QA(s).fXCorrDendro);
+% end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
