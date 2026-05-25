@@ -34,9 +34,9 @@ addpath(genpath(         workDir                                 ))
 tool = 'vasomoTools'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
-tool = 'bassReg2'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
-if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
-addpath(genpath(fullfile(toolDir,tool)))
+% tool = 'bassReg2'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
+% if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
+% addpath(genpath(fullfile(toolDir,tool)))
 tool = 'util'; toolURL = 'https://github.com/Proulx-S/util.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
@@ -251,7 +251,7 @@ verboseThis = 0;
     for S = 1:size(subList,1)
         % if ~isfield(rCond{S},acqList{A}) || isempty(rCond{S}.(acqList{A})); continue; end
         % if contains(acqList{A},{'bold'}); continue; end
-        if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
+        % if contains(acqList{A},{'vfMRIpc' 'bold'}); continue; end
         [volAnat,rCond{S}.(acqList{A})] = volAnatPreproc6(rCond{S}.(acqList{A}),forceThis,verboseThis);
     end
 % end
@@ -718,6 +718,97 @@ load(filename)
 end
 
 
+return
+
+
+
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+for s = 1:length(subIndList)
+    S = subIndList(s);
+    % disp(s)
+    % % rCond{subIndList(s)}.(acq).(task).volAnat.tof
+    % rCond{subIndList(s)}.(acq).(task).volAnat.avMap
+    % rCond{subIndList(s)}.(acq).(task).vol
+    % roi{subIndList(s)}.(acq).(task).vessel(1).polyLabel
+    
+
+
+    tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+    hFol   = {}; hAol   = {}; hIol   = {};
+    hFresp = {}; hAresp = {}; hTresp = {};
+    [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+    threshOL(hIol{end},'off',0);
+
+    adjPoly(hIol{end},'original','y',-1);
+    adjPoly(hIol{end},'dilate1','w',1);
+    close(tiling.main.hF);
+end
+
+
+if 0
+%%%%%%%%%%%%%%
+%% SVD for Jon
+%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+volResp = rCond(subIndList);
+for s = 1:size(volResp,1)
+    volResp{s} = volResp{s}.(acq).(task).volResp.mag.respCat;
+    volResp{s}.subId = subList{subIndList(s)};
+end
+for s = 1:length(volResp)
+    mriResp(s) = MRIread(char(volResp{s}.fResp));
+    mriQVal(s) = MRIread(char(volResp{s}.stats.fCondF_qVal));
+end
+
+figure('MenuBar','none','ToolBar','none');
+ht = tiledlayout(2,ceil(length(volResp)/2)); ht.TileSpacing = 'compact'; ht.Padding = 'compact'; ax = {};
+for s = 1:length(volResp)
+    ax{end+1} = nexttile;
+    t    = linspace(0,(mriResp(s).nframes-1)*mriResp(s).tr/1000,mriResp(s).nframes);
+    resp = permute(mriResp(s).vol,[4 1 2 3]);
+    resp = resp(:,mriQVal(s).vol<0.05);
+    [U,S,V] = svd(resp','econ','vector');
+    [~,b] = max(abs(V(:,1))); Vsign = sign(V(b,1));
+    V = Vsign .* V;
+    U = Vsign .* U;
+    hP1 = plot(t,V(:,1).*sqrt(S(1))); hold on;
+    hP2 = plot(t,V(:,2).*sqrt(S(2)),'lineStyle','--','Color',hP1.Color); hold on;
+    hP3 = plot(t,mean(resp,2)); hold on;
+    axis tight; grid on;
+    xlabel('time after stimulus onset (s)'); ylabel('MR signal (a.u.)');
+    if s == 1
+        legend('sVector 1 * sqrt(sValue 1)','sVector 2 * sqrt(sValue 2)','mean response','Location','best');
+    end
+    title([{volResp{s}.subId} {[num2str(volResp{s}.R) ' runs; ' num2str(size(resp,2)) 'voxels (model-free fdr<0.05); ']}]);
+end
+drawnow;
+saveas(gcf,fullfile(pwd,'svdResp.fig'));
+%% %%%%%%%%%%%
+end
+
+
+
+
+% mriResp = mriResp.vol;
+% mriQVal = mriQVal.vol;
+% mriResp = permute(mriResp,[4 1 2 3]);
+% mriQVal = permute(mriQVal,[4 1 2 3]);
+% mriResp = mriResp(:,mriQVal<0.05);
+% mriQVal = mriQVal(:,mriQVal<0.05);
+% mriResp = mriResp(:,mriQVal<0.05);
+
 
 
 if 0
@@ -839,122 +930,122 @@ end
 %% %%%%%%%%%%%%%%%%%%%
 end
 
-return
+
 
 if 0
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Get polar coefficients adjustment
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    acq = 'vfMRI_dflt_none';
-    task = 'task_50sPrd5sDur';
-    subIndList = [];
-    for S = 1:size(subList,1)
-        if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
-        subIndList(end+1) = S;
-    end
-    hFig = rCond(subIndList);
-    
-    s = 1;
-    hFig{s} = openfig(char(hFig{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_mainVector));
-    ax = findobj(hFig{s}.Children,'type','axes');
-    axScatter = ax;  % keep for adding quadrant labels later
-    xlabel(ax,'SPM canon (coef)'); ylabel(ax,'SPM canon derivative (coef)');
-    % Prevent legend from updating with subsequent plot commands
-    set(get(ax,'Legend'),'AutoUpdate','off')
-    hLine = findobj(ax.Children,'type','Line');
-    plot(hLine(1).YData,flip(hLine(1).XData),'-r')
-    drawnow;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Get polar coefficients adjustment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+hFig = rCond(subIndList);
+
+s = 1;
+hFig{s} = openfig(char(hFig{s}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.stats.fCondCoef_mainVector));
+ax = findobj(hFig{s}.Children,'type','axes');
+axScatter = ax;  % keep for adding quadrant labels later
+xlabel(ax,'SPM canon (coef)'); ylabel(ax,'SPM canon derivative (coef)');
+% Prevent legend from updating with subsequent plot commands
+set(get(ax,'Legend'),'AutoUpdate','off')
+hLine = findobj(ax.Children,'type','Line');
+plot(hLine(1).YData,flip(hLine(1).XData),'-r')
+drawnow;
 
 
-    % Plot data and SPMG2 fit for each adjusted quandrant
-    xMat = rCond{S}.(acq).(task).volResp.mag.actCat.xMat.mat;    
-    mriQval = MRIread(char(           rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal  ));
-    mriData =                         rCond{S}.(acq).(task).volResp.mag.actCat.fIn                  ; for d = 1:length(mriData); mriData{d} = MRIread(mriData{d}); end; mriData = [mriData{:}];
-    mriCoefAdj = MRIread(        char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj));    
-    mriCoef    = afni_getFitCoef(char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fStat        ));
-    data    = permute(     cat(4,mriData.vol)   ,[4 1 2 3]);
-    coefAdj = permute(           mriCoefAdj.vol ,[4 1 2 3]);
-    coef    = permute(           mriCoef.vol    ,[4 1 2 3]);
-    data    = data(   :,mriQval.vol<0.05);
-    coefAdj = coefAdj(:,mriQval.vol<0.05);
-    coef    = coef(   :,mriQval.vol<0.05);
+% Plot data and SPMG2 fit for each adjusted quandrant
+xMat = rCond{S}.(acq).(task).volResp.mag.actCat.xMat.mat;    
+mriQval = MRIread(char(           rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondF_qVal  ));
+mriData =                         rCond{S}.(acq).(task).volResp.mag.actCat.fIn                  ; for d = 1:length(mriData); mriData{d} = MRIread(mriData{d}); end; mriData = [mriData{:}];
+mriCoefAdj = MRIread(        char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj));    
+mriCoef    = afni_getFitCoef(char(rCond{S}.(acq).(task).volResp.mag.actCat.stats.fStat        ));
+data    = permute(     cat(4,mriData.vol)   ,[4 1 2 3]);
+coefAdj = permute(           mriCoefAdj.vol ,[4 1 2 3]);
+coef    = permute(           mriCoef.vol    ,[4 1 2 3]);
+data    = data(   :,mriQval.vol<0.05);
+coefAdj = coefAdj(:,mriQval.vol<0.05);
+coef    = coef(   :,mriQval.vol<0.05);
 
-    whos data coefAdj coef xMat
+whos data coefAdj coef xMat
 
-    dataFit  = xMat*coef;
-    dataFit1 = xMat(:,end-1  )*coef(  end-1,:);
-    dataFit2 = xMat(:,end    )*coef(  end  ,:);
-    dataBase = xMat(:,1:end-2)*coef(1:end-2,:);
-    sz = size(dataFit);
-    dataFitX = permute(mean(reshape(permute(dataFit,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
-    sz = size(dataFit1);
-    dataFit1X = permute(mean(reshape(permute(dataFit1,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
-    sz = size(dataFit2);
-    dataFit2X = permute(mean(reshape(permute(dataFit2,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
-    sz = size(dataBase);
-    dataBaseX = permute(mean(reshape(permute(dataBase,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
-    sz = size(data);
-    dataX    = permute(mean(reshape(permute(data   ,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
+dataFit  = xMat*coef;
+dataFit1 = xMat(:,end-1  )*coef(  end-1,:);
+dataFit2 = xMat(:,end    )*coef(  end  ,:);
+dataBase = xMat(:,1:end-2)*coef(1:end-2,:);
+sz = size(dataFit);
+dataFitX = permute(mean(reshape(permute(dataFit,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
+sz = size(dataFit1);
+dataFit1X = permute(mean(reshape(permute(dataFit1,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
+sz = size(dataFit2);
+dataFit2X = permute(mean(reshape(permute(dataFit2,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
+sz = size(dataBase);
+dataBaseX = permute(mean(reshape(permute(dataBase,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
+sz = size(data);
+dataX    = permute(mean(reshape(permute(data   ,[2 1]),[sz(2) sz(1)/length(mriData) length(mriData)]),3),[2 1]);
 
-    q1Idx = coefAdj(1,:)<0 & coefAdj(2,:)>0; q1Label = 'late negative';
-    q2Idx = coefAdj(1,:)>0 & coefAdj(2,:)>0; q2Label = 'early positive';
-    q3Idx = coefAdj(1,:)<0 & coefAdj(2,:)<0; q3Label = 'early negative';
-    q4Idx = coefAdj(1,:)>0 & coefAdj(2,:)<0; q4Label = 'late positive';
+q1Idx = coefAdj(1,:)<0 & coefAdj(2,:)>0; q1Label = 'late negative';
+q2Idx = coefAdj(1,:)>0 & coefAdj(2,:)>0; q2Label = 'early positive';
+q3Idx = coefAdj(1,:)<0 & coefAdj(2,:)<0; q3Label = 'early negative';
+q4Idx = coefAdj(1,:)>0 & coefAdj(2,:)<0; q4Label = 'late positive';
 
-    hF = figure('MenuBar','none','ToolBar','none');
-    ht = tiledlayout(2,2); ht.TileSpacing = 'compact'; ht.Padding = 'compact'; ax = {};
-    ax{end+1} = nexttile;
-    plot(mean(   dataX(:,q1Idx)-dataBaseX(:,q1Idx),2),'-w')
-    hold on
-    plot(mean(dataFit1X(:,q1Idx),2),'-c')
-    plot(mean(dataFit2X(:,q1Idx),2),'-g')
-    title([q1Label ' voxels (n=' num2str(nnz(q1Idx)) ')'])
-    legend('data minus fitted baseline','double gamma regressor','temporal derivative regressor','AutoUpdate','off')
-    xlabel('time (tr)');
-    ylabel('MR signal (a.u.)');
-    ax{end+1} = nexttile;
-    plot(mean(   dataX(:,q2Idx)-dataBaseX(:,q2Idx),2),'-w')
-    hold on
-    plot(mean(dataFit1X(:,q2Idx),2),'-c')
-    plot(mean(dataFit2X(:,q2Idx),2),'-g')
-    title([q2Label ' voxels (n=' num2str(nnz(q2Idx)) ')'])
-    xlabel('time (tr)');
-    ylabel('MR signal (a.u.)');
-    ax{end+1} = nexttile;
-    plot(mean(   dataX(:,q3Idx)-dataBaseX(:,q3Idx),2),'-w')
-    hold on
-    plot(mean(dataFit1X(:,q3Idx),2),'-c')
-    plot(mean(dataFit2X(:,q3Idx),2),'-g')
-    title([q3Label ' voxels (n=' num2str(nnz(q3Idx)) ')'])
-    xlabel('time (tr)');
-    ylabel('MR signal (a.u.)');
-    ax{end+1} = nexttile;
-    plot(mean(   dataX(:,q4Idx)-dataBaseX(:,q4Idx),2),'-w')
-    hold on
-    plot(mean(dataFit1X(:,q4Idx),2),'-c')
-    plot(mean(dataFit2X(:,q4Idx),2),'-g')
-    title([q4Label ' voxels (n=' num2str(nnz(q4Idx)) ')'])
-    xlabel('time (tr)');
-    ylabel('MR signal (a.u.)');
-    ax = [ax{:}];
-    set(ax,'YLim',[-1 1].*max(max(abs(cell2mat(get(ax,'YLim'))))));
-    ht.Title.String = ['sub-' num2str(s) '; ' num2str(length(mriData)) ' runs'];
-    drawnow;
+hF = figure('MenuBar','none','ToolBar','none');
+ht = tiledlayout(2,2); ht.TileSpacing = 'compact'; ht.Padding = 'compact'; ax = {};
+ax{end+1} = nexttile;
+plot(mean(   dataX(:,q1Idx)-dataBaseX(:,q1Idx),2),'-w')
+hold on
+plot(mean(dataFit1X(:,q1Idx),2),'-c')
+plot(mean(dataFit2X(:,q1Idx),2),'-g')
+title([q1Label ' voxels (n=' num2str(nnz(q1Idx)) ')'])
+legend('data minus fitted baseline','double gamma regressor','temporal derivative regressor','AutoUpdate','off')
+xlabel('time (tr)');
+ylabel('MR signal (a.u.)');
+ax{end+1} = nexttile;
+plot(mean(   dataX(:,q2Idx)-dataBaseX(:,q2Idx),2),'-w')
+hold on
+plot(mean(dataFit1X(:,q2Idx),2),'-c')
+plot(mean(dataFit2X(:,q2Idx),2),'-g')
+title([q2Label ' voxels (n=' num2str(nnz(q2Idx)) ')'])
+xlabel('time (tr)');
+ylabel('MR signal (a.u.)');
+ax{end+1} = nexttile;
+plot(mean(   dataX(:,q3Idx)-dataBaseX(:,q3Idx),2),'-w')
+hold on
+plot(mean(dataFit1X(:,q3Idx),2),'-c')
+plot(mean(dataFit2X(:,q3Idx),2),'-g')
+title([q3Label ' voxels (n=' num2str(nnz(q3Idx)) ')'])
+xlabel('time (tr)');
+ylabel('MR signal (a.u.)');
+ax{end+1} = nexttile;
+plot(mean(   dataX(:,q4Idx)-dataBaseX(:,q4Idx),2),'-w')
+hold on
+plot(mean(dataFit1X(:,q4Idx),2),'-c')
+plot(mean(dataFit2X(:,q4Idx),2),'-g')
+title([q4Label ' voxels (n=' num2str(nnz(q4Idx)) ')'])
+xlabel('time (tr)');
+ylabel('MR signal (a.u.)');
+ax = [ax{:}];
+set(ax,'YLim',[-1 1].*max(max(abs(cell2mat(get(ax,'YLim'))))));
+ht.Title.String = ['sub-' num2str(s) '; ' num2str(length(mriData)) ' runs'];
+drawnow;
 
-    % Add quadrant labels to scatter figure hFig{s}
-    xl = xlim(axScatter); yl = ylim(axScatter);
-    dx = diff(xl)*0.08; dy = diff(yl)*0.08;
-    text(axScatter, xl(1)+dx, yl(2)-dy, q1Label, 'VerticalAlignment','top');
-    text(axScatter, xl(2)-dx, yl(2)-dy, q2Label, 'HorizontalAlignment','right', 'VerticalAlignment','top');
-    text(axScatter, xl(1)+dx, yl(1)+dy, q3Label, 'VerticalAlignment','bottom');
-    text(axScatter, xl(2)-dx, yl(1)+dy, q4Label, 'HorizontalAlignment','right', 'VerticalAlignment','bottom');
-    drawnow;
+% Add quadrant labels to scatter figure hFig{s}
+xl = xlim(axScatter); yl = ylim(axScatter);
+dx = diff(xl)*0.08; dy = diff(yl)*0.08;
+text(axScatter, xl(1)+dx, yl(2)-dy, q1Label, 'VerticalAlignment','top');
+text(axScatter, xl(2)-dx, yl(2)-dy, q2Label, 'HorizontalAlignment','right', 'VerticalAlignment','top');
+text(axScatter, xl(1)+dx, yl(1)+dy, q3Label, 'VerticalAlignment','bottom');
+text(axScatter, xl(2)-dx, yl(1)+dy, q4Label, 'HorizontalAlignment','right', 'VerticalAlignment','bottom');
+drawnow;
 
-    saveas(hF,'adjustmentForSignedEstimateOfResponseAmplitude_dataFitVsData.fig','fig')
-    saveas(hFig{s},'adjustmentForSignedEstimateOfResponseAmplitude_responseScatter.fig','fig')
+saveas(hF,'adjustmentForSignedEstimateOfResponseAmplitude_dataFitVsData.fig','fig')
+saveas(hFig{s},'adjustmentForSignedEstimateOfResponseAmplitude_responseScatter.fig','fig')
 
 
-    %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
 
@@ -1117,6 +1208,7 @@ adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{e
 
 
 % threshOL(hIol,'actQ_dilate1',0);
+threshOL(hIol{end},'off',0);
 
 
 
@@ -1515,7 +1607,6 @@ end
 end
 
 
-return
 
 
 if 0
