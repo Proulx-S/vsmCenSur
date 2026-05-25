@@ -17,10 +17,11 @@ user = char(java.lang.System.getProperty('user.name'));
 if strcmp(os,'Linux') && strcmp(host,'takoyaki') && strcmp(user,'sebp')
     storageDir = '/local/users/Proulx-S/';
     scratchDir = '/scratch/users/Proulx-S/';
-    toolDir    = fullfile(getenv('HOME'),'tools');
+    toolDir    = fullfile(scratchDir,'tools');
     workScript = mfilename;
     workFile   = [workScript '.mat'];
-    workDir    = fullfile(getenv('HOME'),'/work/vsmCenSur/',workScript); if ~exist(workDir,'dir'); mkdir(workDir); end
+    workDir    = fullfile(scratchDir,'vsmCenSur',workScript); if ~exist(workDir,'dir'); mkdir(workDir); end
+    % workDir    = fullfile(getenv('HOME'),'/work/vsmCenSur/',workScript); if ~exist(workDir,'dir'); mkdir(workDir); end
     workFile   = fullfile(fileparts(workDir),workFile);
     envId      = 1;
     setenv('SINGULARITY_BINDPATH',strjoin({storageDir scratchDir toolDir workDir},','));
@@ -30,6 +31,7 @@ end
 
 % Load dependencies
 %%% matlab
+restoredefaultpath
 addpath(genpath(         workDir                                 ))
 tool = 'vasomoTools'; toolURL = 'https://github.com/Proulx-S/vasomoTools.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
@@ -40,18 +42,18 @@ addpath(genpath(fullfile(toolDir,tool)))
 tool = 'util'; toolURL = 'https://github.com/Proulx-S/util.git';
 if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
 addpath(genpath(fullfile(toolDir,tool)))
-tool = 'chronux'; toolURL = 'https://github.com/Proulx-S/chronux';
-if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
-addpath(genpath(fullfile(toolDir,'chronux/chronux_2_12/modified')))
-tool = 'fieldtrip'; toolURL = 'https://github.com/fieldtrip/fieldtrip';
-if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
-addpath(genpath(fullfile(toolDir,'fieldtrip/external/freesurfer')))
+% tool = 'chronux'; toolURL = 'https://github.com/Proulx-S/chronux';
+% if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
+% addpath(genpath(fullfile(toolDir,'chronux/chronux_2_12/modified')))
+% tool = 'fieldtrip'; toolURL = 'https://github.com/fieldtrip/fieldtrip';
+% if ~exist(fullfile(toolDir, tool), 'dir'); system(['git clone ' toolURL ' ' fullfile(toolDir, tool)]); end
+% addpath(genpath(fullfile(toolDir,'fieldtrip/external/freesurfer')))
 % tool = 'shplot'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
-tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
-if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
-addpath(genpath(fullfile(toolDir,tool)))
+% tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
+% if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
+% addpath(genpath(fullfile(toolDir,tool)))
 
 
 
