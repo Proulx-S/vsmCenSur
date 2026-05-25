@@ -1320,6 +1320,39 @@ end
 end
 
 
+
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% dV/V and dA/A for David
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+vessel = [];
+for S = 1:length(roi)
+    acq = 'vfMRI_dflt_none';
+    task = 'task_50sPrd5sDur';
+    if ~isfield(roi{S},acq) || isempty(roi{S}.(acq)) || ~isfield(roi{S}.(acq),task) || isempty(roi{S}.(acq).(task)) || ~isfield(roi{S}.(acq).(task),'vessel') || isempty(roi{S}.(acq).(task).vessel); continue; end
+    disp(['Processing subject ' num2str(S) '...'])
+    
+    roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+
+    vesselSig   = [roi{S}.(acq).(task).vessel.anot_sig]';
+    vesselType1 = ismember({roi{S}.(acq).(task).vessel.class       }','artery'         );
+    vesselType2 = ismember({roi{S}.(acq).(task).vessel.anot_actType}','center-surround');
+    vesselIdx   = vesselSig&vesselType1&vesselType2;
+
+    tmp = rmfield(roi{S}.(acq).(task).vessel(vesselIdx),'svdResp');
+    [tmp.sId] = deal(S);
+    vessel = cat(1,vessel,tmp);
+end
+
+
+
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
+
+
+
 if 0
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Explore time series in transformed space (area)
