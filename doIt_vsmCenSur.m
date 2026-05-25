@@ -1343,7 +1343,7 @@ for S = 1:length(roi)
     [tmp.sId] = deal(S);
     vessel = cat(1,vessel,tmp);
 end
-
+% save('/scratch/bass/projects/dVdA/vsmCenSur.mat','vessel');
 
 
 
