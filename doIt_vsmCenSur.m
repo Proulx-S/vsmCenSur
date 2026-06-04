@@ -55,6 +55,12 @@ addpath(genpath(fullfile(toolDir,tool)))
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
 
+tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool = 'external/freesurfer'; branch = '';
+gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
+tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
+mathworksClone(toolURL, fullfile(toolDir, tool));
+
+
 
 
 %%% neurodesk
@@ -721,6 +727,218 @@ end
 
 
 return
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Compute amplitude of first peak of SPMg2 fit for communication clarity
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+dt      = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.dt;
+dur     = mean(diff(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.onsetList));
+stimDur = mean(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.ondurList);
+
+dtt   = 0.1;
+ttDur = dur;
+ttN   = round(dur/dtt);
+tt    = linspace(0,dtt*(ttN-1),ttN);
+cmd = {src.afni};
+cmd{end+1} = ['3dDeconvolve -nodata ' num2str(ttN) ' ' num2str(dtt) ' \'];
+cmd{end+1} = '-polort -1 -num_stimts 1 \';
+cmd{end+1} = ['-stim_times 1 ''1D: 0'' ''SPMG2(' num2str(stimDur) ')'' \']; % one event at time 0, SPMG2 with stimDur-s boxcar
+cmd{end+1} = ['-x1D SPMG2.x1D -x1D_stop'];          % write design matrix, skip the (empty) solve
+system(strjoin(cmd,newline));
+spmg2 = readmatrix('SPMG2.x1D','FileType','text','CommentStyle','#'); % col1 = canonical HRF, col2 = temporal derivative
+figure
+plot(spmg2); hold on
+plot(sum(spmg2,2),'w');
+legend({'gamma' 'derivative' 'sum'})
+
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+    subIndList(end+1) = S;
+end
+for s = 1:length(subIndList)
+    S = subIndList(s);
+
+    mri = MRIread(replace(roi{S}.(acq).(task).vessel(1).im.act.fName,'_coefs.nii.gz','.nii.gz'));
+    
+    for v = 1:length(roi{S}.(acq).(task).vessel)
+
+        % imagesc(roi{S}.(acq).(task).vessel(1).cropMask)
+        
+        % im    = permute(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]);
+        im    = permute(mri.vol,[4 1 2 3]);
+        im    = im(:,roi{S}.(acq).(task).vessel(1).cropMask);
+        im    = reshape(im,size(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]));
+        
+        
+        imSz  = size(im,[2 3 4]);
+        B     = reshape(im,2,[]);                 % 2 x Nvox SPMG2 coefficients
+        tsAll2 = permute(single(spmg2),[1 3 2]) .* permute(single(B),[3 2 1]);                        % ttN x Nvox reconstructed responses (one column per voxel)
+        tsAll = sum(tsAll2,3);
+        % tsAll = spmg2 * B;                        % ttN x Nvox reconstructed responses (one column per voxel)
+
+
+        %%% Maximum deflection
+        [~,ix]  = max(abs(tsAll),[],1);           % ix = time index of largest |deflection| per voxel
+        pkAmp   = tsAll(sub2ind(size(sum(tsAll,3)),ix,1:numel(ix)))';  % signed value at that index (+ or -)
+        pkTime  = tt(ix)';                        % corresponding time
+
+        ix1 = ix;
+
+
+        roi{S}.(acq).(task).vessel(v).im.act.maxPeakAmp  = reshape(pkAmp ,imSz);
+        roi{S}.(acq).(task).vessel(v).im.act.maxPeakTime = reshape(pkTime,imSz);
+
+
+        
+        %%% First peak
+        % First peak = first turning point along time (local max OR local min)
+        d        = diff(tsAll,1,1);
+        turn     = [false(1,size(d,2)); d(1:end-1,:).*d(2:end,:)<0; false(1,size(d,2))]; % slope sign-flip
+        pkFrac   = 0.1;                            % keep only turning points >= this fraction of the column's peak deflection
+        big      = abs(tsAll) >= pkFrac.*max(abs(tsAll),[],1); % rejects near-zero early ripples
+        isExt    = turn & big;
+        [has,ix] = max(isExt,[],1);               % ix = index of first significant turning point (1 if none)
+
+        pkAmp        = tsAll(sub2ind(size(tsAll),ix,1:numel(ix)))';  % signed: + at a max, - at a min
+        pkTime       = tt(ix)';
+        pkAmp(~has)  = NaN;                        % monotonic in window: no turning point
+        pkTime(~has) = NaN;
+
+        ix2 = ix;
+
+        roi{S}.(acq).(task).vessel(v).im.act.firstPeakAmp  = reshape(pkAmp ,imSz);
+        roi{S}.(acq).(task).vessel(v).im.act.firstPeakTime = reshape(pkTime,imSz);
+
+        im = complex(roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1),roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,2));
+        roi{S}.(acq).(task).vessel(v).im.act.imAmp  = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1); %abs(im);%.*sign(angle(im));
+        roi{S}.(acq).(task).vessel(v).im.act.imTime = angle(im);
+
+
+
+        % figure
+        % imagesc(tsAll./max(abs(tsAll))); colormap(parula); hold on
+        % plot(ix1,'o','MarkerFaceColor','m','MarkerEdgeColor','k');
+        % plot(n,ix1(n),'x','MarkerFaceColor','k','MarkerEdgeColor','k');
+
+
+        roi{S}.(acq).(task).vessel(v).tsAll = tsAll2;
+    end
+end
+
+imAmp  = [];
+imTime = [];
+firstPeakAmp  = [];
+firstPeakTime = [];
+maxPeakAmp  = [];
+maxPeakTime = [];
+SS = [];
+vv = [];
+nn = [];
+tsAll = [];
+for s = 1:length(subIndList)
+    S = subIndList(s);
+    for v = 1:length(roi{S}.(acq).(task).vessel)
+        imMask = false(size(roi{S}.(acq).(task).vessel(v).im.actP.mask));
+        imMask(roi{S}.(acq).(task).vessel(v).polyMask{4}) = mafdr(roi{S}.(acq).(task).vessel(v).im.actP.im(roi{S}.(acq).(task).vessel(v).polyMask{4}),'BHFDR',true)<0.05;
+        
+        imAmp  = [imAmp; roi{S}.(acq).(task).vessel(v).im.act.imAmp(imMask)];
+        imTime = [imTime; roi{S}.(acq).(task).vessel(v).im.act.imTime(imMask)];
+        firstPeakAmp  = [firstPeakAmp; roi{S}.(acq).(task).vessel(v).im.act.firstPeakAmp(imMask)];
+        firstPeakTime = [firstPeakTime; roi{S}.(acq).(task).vessel(v).im.act.firstPeakTime(imMask)];
+        maxPeakAmp  = [maxPeakAmp; roi{S}.(acq).(task).vessel(v).im.act.maxPeakAmp(imMask)];
+        maxPeakTime = [maxPeakTime; roi{S}.(acq).(task).vessel(v).im.act.maxPeakTime(imMask)];
+        SS = [SS; repmat(S,nnz(imMask),1)];
+        vv = [vv; repmat(v,nnz(imMask),1)];
+        nn = [nn; find(imMask)];
+        tsAll = cat(1,tsAll,   permute( roi{S}.(acq).(task).vessel(v).tsAll(:,imMask(:),:) ,[2 1 3])   );
+    end
+end
+
+
+whos imAmp imTime firstPeakAmp firstPeakTime maxPeakAmp maxPeakTime tsAll
+lim = [-1 1].*max(abs([imAmp(:); firstPeakAmp(:); maxPeakAmp(:)]));
+figure
+plot(imAmp,firstPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
+xlim(lim); ylim(lim);
+axis square tight
+xlabel('imAmp')
+ylabel('firstPeakAmp')
+figure
+plot(imAmp,maxPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
+xlim(lim); ylim(lim);
+axis square tight
+xlabel('imAmp')
+ylabel('maxPeakAmp')
+
+
+incl = imAmp>0 & maxPeakAmp<0;
+[~,b] = sort(sqrt(imAmp(incl).^2+maxPeakAmp(incl).^2),'descend');
+
+SSlist = SS(incl); SSlist = SSlist(b);
+vvList = vv(incl); vvList = vvList(b);
+nnList = nn(incl); nnList = nnList(b);
+imAmpX      = imAmp(incl); imAmpX = imAmpX(b);
+maxPeakAmpX = maxPeakAmp(incl); maxPeakAmpX = maxPeakAmpX(b);
+tsAllX = tsAll(incl,:,:); tsAllX = tsAllX(b,:,:);
+
+i = 1;
+S  = SSlist(i);
+v  = vvList(i);
+n  = nnList(i);
+iA = imAmpX(i);
+iM = maxPeakAmpX(i);
+tA = tsAllX(i,:,:);
+
+
+figure; hT = tiledlayout(1,2); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
+
+ax{end+1} = nexttile;
+plot(imAmp,maxPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
+axis square tight
+xlabel('imAmp')
+ylabel('maxPeakAmp')
+hold on
+plot(iA,iM,'o','MarkerFaceColor','r','MarkerEdgeColor','k');
+
+ax{end+1} = nexttile;
+plot(tt,squeeze(tA)); hold on
+plot(tt,sum(squeeze(tA),2),'w')
+
+
+
+
+
+
+
+
+mri = MRIread(replace(roi{S}.(acq).(task).vessel(v).im.act.fName,'_coefs.nii.gz','.nii.gz'));
+im    = permute(mri.vol,[4 1 2 3]);
+im    = im(:,roi{S}.(acq).(task).vessel(v).cropMask);
+im    = reshape(im,size(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]));
+% im0    = permute(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]);
+imSz  = size(im,[2 3 4]);
+B     = reshape(im,2,[]);                 % 2 x Nvox SPMG2 coefficients
+tsAll = spmg2 .* B(:,n)';                        % ttN x Nvox reconstructed responses (one column per voxel)
+plot(tt,tsAll); hold on
+plot(tt,sum(tsAll,2),'w');
+
+
+
+
+
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
 
 
 

@@ -1,6 +1,2 @@
 *+ WARNING: no -stim_label given for stim #1 ==> label = 'Stim#1'
-*+ WARNING: no -stim_label given for stim #2 ==> label = 'Stim#2'
-*+ WARNING: no -stim_label given for stim #3 ==> label = 'Stim#3'
-*+ WARNING: !! stimulus filename #1:'1D: 10 60' same as #2:'1D: 10 60'
-*+ WARNING: !! stimulus filename #1:'1D: 10 60' same as #3:'1D: 10 60'
-*+ WARNING: !! stimulus filename #2:'1D: 10 60' same as #3:'1D: 10 60'
+*+ WARNING: -stim_times 1 has all times equal to 0 or 1 ?!?!
