@@ -726,213 +726,6 @@ load(filename)
 end
 
 
-return
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Compute amplitude of first peak of SPMg2 fit for communication clarity
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dt      = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.dt;
-dur     = mean(diff(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.onsetList));
-stimDur = mean(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.ondurList);
-
-dtt   = 0.1;
-ttDur = dur;
-ttN   = round(dur/dtt);
-tt    = linspace(0,dtt*(ttN-1),ttN);
-cmd = {src.afni};
-cmd{end+1} = ['3dDeconvolve -nodata ' num2str(ttN) ' ' num2str(dtt) ' \'];
-cmd{end+1} = '-polort -1 -num_stimts 1 \';
-cmd{end+1} = ['-stim_times 1 ''1D: 0'' ''SPMG2(' num2str(stimDur) ')'' \']; % one event at time 0, SPMG2 with stimDur-s boxcar
-cmd{end+1} = ['-x1D SPMG2.x1D -x1D_stop'];          % write design matrix, skip the (empty) solve
-system(strjoin(cmd,newline));
-spmg2 = readmatrix('SPMG2.x1D','FileType','text','CommentStyle','#'); % col1 = canonical HRF, col2 = temporal derivative
-figure
-plot(spmg2); hold on
-plot(sum(spmg2,2),'w');
-legend({'gamma' 'derivative' 'sum'})
-
-acq = 'vfMRI_dflt_none';
-task = 'task_50sPrd5sDur';
-subIndList = [];
-for S = 1:size(subList,1)
-    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
-    subIndList(end+1) = S;
-end
-for s = 1:length(subIndList)
-    S = subIndList(s);
-
-    mri = MRIread(replace(roi{S}.(acq).(task).vessel(1).im.act.fName,'_coefs.nii.gz','.nii.gz'));
-    
-    for v = 1:length(roi{S}.(acq).(task).vessel)
-
-        % imagesc(roi{S}.(acq).(task).vessel(1).cropMask)
-        
-        % im    = permute(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]);
-        im    = permute(mri.vol,[4 1 2 3]);
-        im    = im(:,roi{S}.(acq).(task).vessel(1).cropMask);
-        im    = reshape(im,size(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]));
-        
-        
-        imSz  = size(im,[2 3 4]);
-        B     = reshape(im,2,[]);                 % 2 x Nvox SPMG2 coefficients
-        tsAll2 = permute(single(spmg2),[1 3 2]) .* permute(single(B),[3 2 1]);                        % ttN x Nvox reconstructed responses (one column per voxel)
-        tsAll = sum(tsAll2,3);
-        % tsAll = spmg2 * B;                        % ttN x Nvox reconstructed responses (one column per voxel)
-
-
-        %%% Maximum deflection
-        [~,ix]  = max(abs(tsAll),[],1);           % ix = time index of largest |deflection| per voxel
-        pkAmp   = tsAll(sub2ind(size(sum(tsAll,3)),ix,1:numel(ix)))';  % signed value at that index (+ or -)
-        pkTime  = tt(ix)';                        % corresponding time
-
-        ix1 = ix;
-
-
-        roi{S}.(acq).(task).vessel(v).im.act.maxPeakAmp  = reshape(pkAmp ,imSz);
-        roi{S}.(acq).(task).vessel(v).im.act.maxPeakTime = reshape(pkTime,imSz);
-
-
-        
-        %%% First peak
-        % First peak = first turning point along time (local max OR local min)
-        d        = diff(tsAll,1,1);
-        turn     = [false(1,size(d,2)); d(1:end-1,:).*d(2:end,:)<0; false(1,size(d,2))]; % slope sign-flip
-        pkFrac   = 0.1;                            % keep only turning points >= this fraction of the column's peak deflection
-        big      = abs(tsAll) >= pkFrac.*max(abs(tsAll),[],1); % rejects near-zero early ripples
-        isExt    = turn & big;
-        [has,ix] = max(isExt,[],1);               % ix = index of first significant turning point (1 if none)
-
-        pkAmp        = tsAll(sub2ind(size(tsAll),ix,1:numel(ix)))';  % signed: + at a max, - at a min
-        pkTime       = tt(ix)';
-        pkAmp(~has)  = NaN;                        % monotonic in window: no turning point
-        pkTime(~has) = NaN;
-
-        ix2 = ix;
-
-        roi{S}.(acq).(task).vessel(v).im.act.firstPeakAmp  = reshape(pkAmp ,imSz);
-        roi{S}.(acq).(task).vessel(v).im.act.firstPeakTime = reshape(pkTime,imSz);
-
-        im = complex(roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1),roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,2));
-        roi{S}.(acq).(task).vessel(v).im.act.imAmp  = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1); %abs(im);%.*sign(angle(im));
-        roi{S}.(acq).(task).vessel(v).im.act.imTime = angle(im);
-
-
-
-        % figure
-        % imagesc(tsAll./max(abs(tsAll))); colormap(parula); hold on
-        % plot(ix1,'o','MarkerFaceColor','m','MarkerEdgeColor','k');
-        % plot(n,ix1(n),'x','MarkerFaceColor','k','MarkerEdgeColor','k');
-
-
-        roi{S}.(acq).(task).vessel(v).tsAll = tsAll2;
-    end
-end
-
-imAmp  = [];
-imTime = [];
-firstPeakAmp  = [];
-firstPeakTime = [];
-maxPeakAmp  = [];
-maxPeakTime = [];
-SS = [];
-vv = [];
-nn = [];
-tsAll = [];
-for s = 1:length(subIndList)
-    S = subIndList(s);
-    for v = 1:length(roi{S}.(acq).(task).vessel)
-        imMask = false(size(roi{S}.(acq).(task).vessel(v).im.actP.mask));
-        imMask(roi{S}.(acq).(task).vessel(v).polyMask{4}) = mafdr(roi{S}.(acq).(task).vessel(v).im.actP.im(roi{S}.(acq).(task).vessel(v).polyMask{4}),'BHFDR',true)<0.05;
-        
-        imAmp  = [imAmp; roi{S}.(acq).(task).vessel(v).im.act.imAmp(imMask)];
-        imTime = [imTime; roi{S}.(acq).(task).vessel(v).im.act.imTime(imMask)];
-        firstPeakAmp  = [firstPeakAmp; roi{S}.(acq).(task).vessel(v).im.act.firstPeakAmp(imMask)];
-        firstPeakTime = [firstPeakTime; roi{S}.(acq).(task).vessel(v).im.act.firstPeakTime(imMask)];
-        maxPeakAmp  = [maxPeakAmp; roi{S}.(acq).(task).vessel(v).im.act.maxPeakAmp(imMask)];
-        maxPeakTime = [maxPeakTime; roi{S}.(acq).(task).vessel(v).im.act.maxPeakTime(imMask)];
-        SS = [SS; repmat(S,nnz(imMask),1)];
-        vv = [vv; repmat(v,nnz(imMask),1)];
-        nn = [nn; find(imMask)];
-        tsAll = cat(1,tsAll,   permute( roi{S}.(acq).(task).vessel(v).tsAll(:,imMask(:),:) ,[2 1 3])   );
-    end
-end
-
-
-whos imAmp imTime firstPeakAmp firstPeakTime maxPeakAmp maxPeakTime tsAll
-lim = [-1 1].*max(abs([imAmp(:); firstPeakAmp(:); maxPeakAmp(:)]));
-figure
-plot(imAmp,firstPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
-xlim(lim); ylim(lim);
-axis square tight
-xlabel('imAmp')
-ylabel('firstPeakAmp')
-figure
-plot(imAmp,maxPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
-xlim(lim); ylim(lim);
-axis square tight
-xlabel('imAmp')
-ylabel('maxPeakAmp')
-
-
-incl = imAmp>0 & maxPeakAmp<0;
-[~,b] = sort(sqrt(imAmp(incl).^2+maxPeakAmp(incl).^2),'descend');
-
-SSlist = SS(incl); SSlist = SSlist(b);
-vvList = vv(incl); vvList = vvList(b);
-nnList = nn(incl); nnList = nnList(b);
-imAmpX      = imAmp(incl); imAmpX = imAmpX(b);
-maxPeakAmpX = maxPeakAmp(incl); maxPeakAmpX = maxPeakAmpX(b);
-tsAllX = tsAll(incl,:,:); tsAllX = tsAllX(b,:,:);
-
-i = 1;
-S  = SSlist(i);
-v  = vvList(i);
-n  = nnList(i);
-iA = imAmpX(i);
-iM = maxPeakAmpX(i);
-tA = tsAllX(i,:,:);
-
-
-figure; hT = tiledlayout(1,2); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
-
-ax{end+1} = nexttile;
-plot(imAmp,maxPeakAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k');
-axis square tight
-xlabel('imAmp')
-ylabel('maxPeakAmp')
-hold on
-plot(iA,iM,'o','MarkerFaceColor','r','MarkerEdgeColor','k');
-
-ax{end+1} = nexttile;
-plot(tt,squeeze(tA)); hold on
-plot(tt,sum(squeeze(tA),2),'w')
-
-
-
-
-
-
-
-
-mri = MRIread(replace(roi{S}.(acq).(task).vessel(v).im.act.fName,'_coefs.nii.gz','.nii.gz'));
-im    = permute(mri.vol,[4 1 2 3]);
-im    = im(:,roi{S}.(acq).(task).vessel(v).cropMask);
-im    = reshape(im,size(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]));
-% im0    = permute(roi{S}.(acq).(task).vessel(v).im.act.im,[4 1 2 3]);
-imSz  = size(im,[2 3 4]);
-B     = reshape(im,2,[]);                 % 2 x Nvox SPMG2 coefficients
-tsAll = spmg2 .* B(:,n)';                        % ttN x Nvox reconstructed responses (one column per voxel)
-plot(tt,tsAll); hold on
-plot(tt,sum(tsAll,2),'w');
-
-
-
-
-
-
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
@@ -942,33 +735,38 @@ plot(tt,sum(tsAll,2),'w');
 
 
 
-acq = 'vfMRI_dflt_none';
-task = 'task_50sPrd5sDur';
-subIndList = [];
-for S = 1:size(subList,1)
-    if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
-    subIndList(end+1) = S;
-end
-for s = 1:length(subIndList)
-    S = subIndList(s);
-    % disp(s)
-    % % rCond{subIndList(s)}.(acq).(task).volAnat.tof
-    % rCond{subIndList(s)}.(acq).(task).volAnat.avMap
-    % rCond{subIndList(s)}.(acq).(task).vol
-    % roi{subIndList(s)}.(acq).(task).vessel(1).polyLabel
+% acq = 'vfMRI_dflt_none';
+% task = 'task_50sPrd5sDur';
+% subIndList = [];
+% for S = 1:size(subList,1)
+%     if ~isfield(rCond{S},acq) || ~isfield(rCond{S}.(acq),task); continue; end
+%     subIndList(end+1) = S;
+% end
+% for s = 1:length(subIndList)
+%     S = subIndList(s);
+%     % disp(s)
+%     % % rCond{subIndList(s)}.(acq).(task).volAnat.tof
+%     % rCond{subIndList(s)}.(acq).(task).volAnat.avMap
+%     % rCond{subIndList(s)}.(acq).(task).vol
+%     % roi{subIndList(s)}.(acq).(task).vessel(1).polyLabel
     
 
 
-    tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
-    hFol   = {}; hAol   = {}; hIol   = {};
-    hFresp = {}; hAresp = {}; hTresp = {};
-    [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-    threshOL(hIol{end},'off',0);
+%     tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+%     hFol   = {}; hAol   = {}; hIol   = {};
+%     hFresp = {}; hAresp = {}; hTresp = {};
+%     [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+%     threshOL(hIol{end},'off',0);
 
-    adjPoly(hIol{end},'original','y',-1);
-    adjPoly(hIol{end},'dilate1','w',1);
-    close(tiling.main.hF);
-end
+%     adjPoly(hIol{end},'original','y',-1);
+%     adjPoly(hIol{end},'dilate1','w',1);
+%     close(tiling.main.hF);
+% end
+
+
+
+
+
 
 
 if 0
@@ -1173,6 +971,8 @@ xlabel(ax,'SPM canon (coef)'); ylabel(ax,'SPM canon derivative (coef)');
 % Prevent legend from updating with subsequent plot commands
 set(get(ax,'Legend'),'AutoUpdate','off')
 hLine = findobj(ax.Children,'type','Line');
+hScatter = findobj(ax.Children,'type','Scatter');
+hScatter.MarkerEdgeColor = 'w';
 plot(hLine(1).YData,flip(hLine(1).XData),'-r')
 drawnow;
 
@@ -2040,7 +1840,7 @@ end
 
 
 
-return
+
 
 
 
@@ -2056,6 +1856,36 @@ return
 %%%%%%%%%%%%%%%%
 %% Summarize roi
 %%%%%%%%%%%%%%%%
+S=1;
+dt      = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.dt;
+dur     = mean(diff(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.onsetList));
+stimDur = mean(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.ondurList);
+
+dtt   = 0.1;
+ttDur = dur;
+ttN   = round(dur/dtt);
+tt    = linspace(0,dtt*(ttN-1),ttN);
+cmd = {src.afni};
+cmd{end+1} = ['3dDeconvolve -nodata ' num2str(ttN) ' ' num2str(dtt) ' \'];
+cmd{end+1} = '-polort -1 -num_stimts 1 \';
+cmd{end+1} = ['-stim_times 1 ''1D: 0'' ''SPMG2(' num2str(stimDur) ')'' \']; % one event at time 0, SPMG2 with stimDur-s boxcar
+cmd{end+1} = ['-x1D SPMG2.x1D -x1D_stop'];          % write design matrix, skip the (empty) solve
+system(strjoin(cmd,newline));
+spmg2 = readmatrix('SPMG2.x1D','FileType','text','CommentStyle','#'); % col1 = canonical HRF, col2 = temporal derivative
+figure
+plot(tt,spmg2); hold on
+plot(tt,sum(spmg2,2),'w');
+legend({'gamma' 'derivative' 'sum'})
+grid on;
+
+coefs1_adj = {};
+coefs1     = {};
+coefs2_adj = {};
+coefs2     = {};
+actMask    = {};
+ts         = {};
+
+
 
 plotIt  = 1;
 saveIt  = 0;
@@ -2066,12 +1896,13 @@ if plotIt
     drawnow;
 end
 for S = 1:size(subList,1)
-    for A = 1%:length(acqList)
+    for A = 1:length(acqList)
         acq  = acqList{A};
         if ~isfield(rCond{S},acq)          ; continue; end
         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
         for T = 1:length(taskList)
             task = taskList{T};
+            if ~strcmp(task,'task_50sPrd5sDur'); continue; end
             if ~isfield(rCond{S}.(acq),task); continue; end
             
             % plot vessel roi
@@ -2130,6 +1961,67 @@ adjPoly(hIol,'dilate1','w',1);
                 end
             end
 
+
+
+            if 1
+                %%% compile for assessing coef validity %%%
+                for v = 1:length(roi{S}.(acq).(task).vessel)
+                    if ~strcmp(roi{S}.(acq).(task).vessel(v).class       ,'artery'         ); continue; end
+                    if        ~roi{S}.(acq).(task).vessel(v).anot_sig                       ; continue; end
+                    if ~strcmp(roi{S}.(acq).(task).vessel(v).anot_actType,'center-surround'); continue; end
+                    
+                    
+                    sz = size(roi{S}.(acq).(task).vessel(v).polyMask{1});
+
+                    actMask{end+1} = false(sz);
+                    im2vec = roi{S}.(acq).(task).vessel(v).polyMask{ismember(roi{S}.(acq).(task).vessel(v).polyLabel,'dilate1')};
+                    vec    = roi{S}.(acq).(task).vessel(v).im.actP.im(im2vec);
+                    actMask{end}(im2vec) = mafdr(vec,'BHFDR',true)<0.05;
+
+                    coefs1_adj{end+1} = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1);
+                    coefs1_adj{end}   = coefs1_adj{end}(actMask{end});
+                    coefs2_adj{end+1} = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,2);
+                    coefs2_adj{end}   = coefs2_adj{end}(actMask{end});
+                    
+                    coefs1{end+1} = nan(sz);
+                    coefs2{end+1} = nan(sz);
+                    mri = MRIread(replace(roi{S}.(acq).(task).vessel(v).im.act.fName,'_coefsAdj.nii.gz','_coefs.nii.gz'));
+                    tmp = permute(mri.vol,[4 1 2 3]);
+                    coefs1{end}(:) = tmp(1,roi{S}.(acq).(task).vessel(v).cropMask);
+                    coefs2{end}(:) = tmp(2,roi{S}.(acq).(task).vessel(v).cropMask);
+                    coefs1{end} = coefs1{end}(actMask{end});
+                    coefs2{end} = coefs2{end}(actMask{end});
+                    
+                    ts{end+1} = permute(roi{S}.(acq).(task).vessel(v).im.resp.im,[4 1 2 3]);
+                    ts{end}   = ts{end}(:,actMask{end})';
+                    
+
+
+
+
+                    % figure;
+                    % imA = sqrt(coefs1_adj.^2+coefs2_adj.^2);
+                    % imB = sqrt(coefs1.^2    +coefs2.^2    );
+                    % % imA = atan(coefs2_adj./coefs1_adj);
+                    % % imB = atan(coefs2    ./coefs1    );
+                    % cLim = [-1 1].*max(abs([imA(:) imB(:)]));
+                    % subplot(1,2,1); imagesc(imA,cLim); axis image; title('imA'); colorbar
+                    % subplot(1,2,2); imagesc(imB,cLim); axis image; title('imB'); colorbar
+
+
+
+                    
+                        
+                        
+
+
+                end
+            end
+
+
+
+
+
             % get data
             % roi{S}.(acq).(task).vessel = smrRoi(rCond{S}.(acq).(task),{'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ' },roi{S}.(acq).(task).vessel);
             % roi{S}.(acq).(task).vessel = smrRoi2(rCond{S}.(acq).(task),{'resp_original_actQ_actSgn' 'psd_original_actQ' 'psdTrialGram_original_actQ' 'resp_dilate1_actQ_actSgn'  'psd_dilate1_actQ'  'psdTrialGram_dilate1_actQ'},roi{S}.(acq).(task).vessel);
@@ -2139,7 +2031,66 @@ adjPoly(hIol,'dilate1','w',1);
 end
 
 
+
+
+return
+coefs1_adj = cat(1,coefs1_adj{:});
+coefs1     = cat(1,coefs1{:}    );
+coefs2_adj = cat(1,coefs2_adj{:});
+coefs2     = cat(1,coefs2{:}    );
+ts         = cat(1,ts{:}        );
+tsFit1     = coefs1.*spmg2(:,1)';
+tsFit2     = coefs2.*spmg2(:,2)';
+tsFit      = tsFit1+tsFit2;
+
+[~,b] = max(abs(tsFit),[],2);
+maxAmp = tsFit(sub2ind(size(tsFit),(1:size(tsFit,1))',b));
+
+whos coefs* ts tsFit* spmg2 maxAmp
+
+i=8;
+i=29;
+i=45;
+figure;
+hT = tiledlayout(1,3); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
+ax{end+1} = nexttile;
+imagesc([1 size(tsFit,1)],[0 dtt*(ttN-1)],(tsFit./max(abs(tsFit),[],2))');
+colormap('jet'); axis square; colorbar
+hold on
+plot(dtt*(b-1),'o','MarkerFaceColor','w','MarkerEdgeColor','k');
+ax{end+1} = nexttile;
+plot(coefs1_adj,maxAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k'); hold on
+xlabel('coefs1_adj'); ylabel('maxAmp');
+lim = [-1 1].*max(abs([coefs1_adj(:); maxAmp(:)]));
+ylim(lim); xlim(lim);
+axis square
+grid on
+plot(ax{1},i,dtt*(b(i)-1),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
+plot(ax{2},coefs1_adj(i),maxAmp(i),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
+xline(0,'w'); yline(0,'w');
+
+ax{end+1} = nexttile;
+plot(tt,tsFit1(i,:)); hold on
+plot(tt,tsFit2(i,:));
+plot(tt,tsFit(i,:),'w');
+plot(linspace(0,dt*(size(ts,2)-1),size(ts,2)),ts(i,:),'--w');
+axis tight square
+xlabel('time (s)'); ylabel('MR signal');
+grid on
+legend('double-gamma','derivatives','sum','data');
+
+
+
+
+
+
+
+
+
+
+
 metricList = {};
+task = 'task_50sPrd5sDur';
 for m = 1:length(roi{S}.(acq).(task).vessel(1).smr)
     metricList{m} = roi{S}.(acq).(task).vessel(1).smr{m}.metric;
 end
