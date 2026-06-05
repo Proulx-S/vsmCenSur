@@ -801,13 +801,13 @@ for s = 1:length(volResp)
     [~,b] = max(abs(V(:,1))); Vsign = sign(V(b,1));
     V = Vsign .* V;
     U = Vsign .* U;
-    hP1 = plot(t,V(:,1).*sqrt(S(1))); hold on;
-    hP2 = plot(t,V(:,2).*sqrt(S(2)),'lineStyle','--','Color',hP1.Color); hold on;
+    hP1 = plot(t,V(:,1).*S(1).*mean(U(:,1))); hold on;                                        % component 1 contribution to the voxel-mean response
+    hP2 = plot(t,V(:,2).*S(2).*mean(U(:,2)),'lineStyle','--','Color',hP1.Color); hold on;      % component 2 contribution to the voxel-mean response
     hP3 = plot(t,mean(resp,2)); hold on;
     axis tight; grid on;
     xlabel('time after stimulus onset (s)'); ylabel('MR signal (a.u.)');
     if s == 1
-        legend('sVector 1 * sqrt(sValue 1)','sVector 2 * sqrt(sValue 2)','mean response','Location','best');
+        legend('sVector 1 * sValue 1 * mean(spatial sVector 1)','sVector 2 * sValue 2 * mean(spatial sVector 2)','mean response','Location','best');
     end
     title([{volResp{s}.subId} {[num2str(volResp{s}.R) ' runs; ' num2str(size(resp,2)) 'voxels (model-free fdr<0.05); ']}]);
 end
@@ -1878,12 +1878,16 @@ plot(tt,sum(spmg2,2),'w');
 legend({'gamma' 'derivative' 'sum'})
 grid on;
 
+polyMask   = {};
+polyShape  = polyshape.empty;
+cropOrigin = {};
+actMask    = {};
 coefs1_adj = {};
 coefs1     = {};
 coefs2_adj = {};
 coefs2     = {};
-actMask    = {};
-ts         = {};
+tsResp     = {};
+base       = {};
 
 
 
@@ -1973,15 +1977,16 @@ adjPoly(hIol,'dilate1','w',1);
                     
                     sz = size(roi{S}.(acq).(task).vessel(v).polyMask{1});
 
-                    actMask{end+1} = false(sz);
-                    im2vec = roi{S}.(acq).(task).vessel(v).polyMask{ismember(roi{S}.(acq).(task).vessel(v).polyLabel,'dilate1')};
-                    vec    = roi{S}.(acq).(task).vessel(v).im.actP.im(im2vec);
-                    actMask{end}(im2vec) = mafdr(vec,'BHFDR',true)<0.05;
+                    polyShape(end+1) = roi{S}.(acq).(task).vessel(v).poly(ismember(roi{S}.(acq).(task).vessel(v).polyLabel,'dilate1'));
+                    polyMask{end+1} = roi{S}.(acq).(task).vessel(v).polyMask{ismember(roi{S}.(acq).(task).vessel(v).polyLabel,'dilate1')};
+                    actMask{end+1}  = false(sz);
+                    vec = roi{S}.(acq).(task).vessel(v).im.actP.im(polyMask{end});
+                    actMask{end}(polyMask{end}) = mafdr(vec,'BHFDR',true)<0.05;
 
                     coefs1_adj{end+1} = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,1);
-                    coefs1_adj{end}   = coefs1_adj{end}(actMask{end});
+                    % coefs1_adj_vec{end+1}   = coefs1_adj{end}(actMask{end});
                     coefs2_adj{end+1} = roi{S}.(acq).(task).vessel(v).im.act.im(:,:,:,2);
-                    coefs2_adj{end}   = coefs2_adj{end}(actMask{end});
+                    % coefs2_adj_vec{end+1}   = coefs2_adj{end}(actMask{end});
                     
                     coefs1{end+1} = nan(sz);
                     coefs2{end+1} = nan(sz);
@@ -1989,13 +1994,18 @@ adjPoly(hIol,'dilate1','w',1);
                     tmp = permute(mri.vol,[4 1 2 3]);
                     coefs1{end}(:) = tmp(1,roi{S}.(acq).(task).vessel(v).cropMask);
                     coefs2{end}(:) = tmp(2,roi{S}.(acq).(task).vessel(v).cropMask);
-                    coefs1{end} = coefs1{end}(actMask{end});
-                    coefs2{end} = coefs2{end}(actMask{end});
+                    [cropR,cropC] = find(roi{S}.(acq).(task).vessel(v).cropMask);
+                    cropOrigin{end+1} = [min(cropR) min(cropC)]; % [row col] of crop top-left in full-image space
+                    % coefs1_vec{end}(:) = coefs1{end}(1,roi{S}.(acq).(task).vessel(v).cropMask);
+                    % coefs2{end}(:) = tmp(2,roi{S}.(acq).(task).vessel(v).cropMask);
+                    % coefs1{end} = coefs1{end}(actMask{end});
+                    % coefs2{end} = coefs2{end}(actMask{end});
                     
-                    ts{end+1} = permute(roi{S}.(acq).(task).vessel(v).im.resp.im,[4 1 2 3]);
-                    ts{end}   = ts{end}(:,actMask{end})';
+                    tsResp{end+1} = roi{S}.(acq).(task).vessel(v).im.resp.im;
+                    % ts{end+1} = permute(roi{S}.(acq).(task).vessel(v).im.resp.im,[4 1 2 3]);
+                    % ts{end}   = ts{end}(:,actMask{end})';
                     
-
+                    base{end+1} = roi{S}.(acq).(task).vessel(v).im.base.im;
 
 
 
@@ -2032,52 +2042,217 @@ end
 
 
 
+%%%%
+%%%%
+%%%%
+%%%%
+if 0
+    return
+    close all
 
-return
-coefs1_adj = cat(1,coefs1_adj{:});
-coefs1     = cat(1,coefs1{:}    );
-coefs2_adj = cat(1,coefs2_adj{:});
-coefs2     = cat(1,coefs2{:}    );
-ts         = cat(1,ts{:}        );
-tsFit1     = coefs1.*spmg2(:,1)';
-tsFit2     = coefs2.*spmg2(:,2)';
-tsFit      = tsFit1+tsFit2;
+    polyShape;
+    polyMask;
+    actMask;
+    base;
 
-[~,b] = max(abs(tsFit),[],2);
-maxAmp = tsFit(sub2ind(size(tsFit),(1:size(tsFit,1))',b));
+    coefs1_adj_vec = cell(size(coefs1_adj));
+    coefs2_adj_vec = cell(size(coefs2_adj));
+    coefs1_vec = cell(size(coefs1));
+    coefs2_vec = cell(size(coefs2));
+    tsResp_vec = cell(size(tsResp));
+    vv_vec     = cell(size(tsResp));
+    vx_vec     = cell(size(tsResp));
+    for v = 1:length(coefs1_adj)
+        coefs1_adj_vec{v} = coefs1_adj{v}(actMask{v});
+        coefs2_adj_vec{v} = coefs2_adj{v}(actMask{v});
+        coefs1_vec{v}     = coefs1{v}(actMask{v});
+        coefs2_vec{v}     = coefs2{v}(actMask{v});
+        tmp = permute(tsResp{v},[4 1 2 3]);
+        tsResp_vec{v}     = tmp(:,actMask{v})';
+        vv_vec{v}         = repmat(v,[size(tsResp_vec{v},1) 1]);
+        vx_vec{v}         = find(actMask{v});
+    end
 
-whos coefs* ts tsFit* spmg2 maxAmp
 
-i=8;
-i=29;
-i=45;
-figure;
-hT = tiledlayout(1,3); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
-ax{end+1} = nexttile;
-imagesc([1 size(tsFit,1)],[0 dtt*(ttN-1)],(tsFit./max(abs(tsFit),[],2))');
-colormap('jet'); axis square; colorbar
-hold on
-plot(dtt*(b-1),'o','MarkerFaceColor','w','MarkerEdgeColor','k');
-ax{end+1} = nexttile;
-plot(coefs1_adj,maxAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k'); hold on
-xlabel('coefs1_adj'); ylabel('maxAmp');
-lim = [-1 1].*max(abs([coefs1_adj(:); maxAmp(:)]));
-ylim(lim); xlim(lim);
-axis square
-grid on
-plot(ax{1},i,dtt*(b(i)-1),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
-plot(ax{2},coefs1_adj(i),maxAmp(i),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
-xline(0,'w'); yline(0,'w');
+    coefs1_adj_vec = cat(1,coefs1_adj_vec{:});
+    coefs1_vec     = cat(1,coefs1_vec{:}    );
+    coefs2_adj_vec = cat(1,coefs2_adj_vec{:});
+    coefs2_vec     = cat(1,coefs2_vec{:}    );
+    tsResp_vec     = cat(1,tsResp_vec{:}    );
+    vv_vec         = cat(1,vv_vec{:}        );
+    vx_vec         = cat(1,vx_vec{:}        );
 
-ax{end+1} = nexttile;
-plot(tt,tsFit1(i,:)); hold on
-plot(tt,tsFit2(i,:));
-plot(tt,tsFit(i,:),'w');
-plot(linspace(0,dt*(size(ts,2)-1),size(ts,2)),ts(i,:),'--w');
-axis tight square
-xlabel('time (s)'); ylabel('MR signal');
-grid on
-legend('double-gamma','derivatives','sum','data');
+    tsFit1     = coefs1_vec.*spmg2(:,1)';
+    tsFit2     = coefs2_vec.*spmg2(:,2)';
+    tsFit      = tsFit1+tsFit2;
+
+    t = linspace(0,dt*(size(tsResp_vec,2)-1),size(tsResp_vec,2));
+
+    [~,b] = max(abs(tsFit),[],2);
+    maxAmp = tsFit(sub2ind(size(tsFit),(1:size(tsFit,1))',b));
+
+    % whos coefs* ts* tsFit* spmg2 maxAmp
+
+
+
+    % i=8;
+    i=29;
+    % i=45;
+    figure;
+    hT = tiledlayout(1,3); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
+    ax{end+1} = nexttile;
+    imagesc([1 size(tsFit,1)],[0 dtt*(ttN-1)],(tsFit./max(abs(tsFit),[],2))');
+    colormap('jet'); axis square; colorbar
+    hold on
+    plot(dtt*(b-1),'o','MarkerFaceColor','w','MarkerEdgeColor','k');
+    ax{end+1} = nexttile;
+    plot(coefs1_adj_vec,maxAmp,'o','MarkerFaceColor','w','MarkerEdgeColor','k'); hold on
+    xlabel('coefs1_adj'); ylabel('maxAmp');
+    lim = [-1 1].*max(abs([coefs1_adj_vec(:); maxAmp(:)]));
+    ylim(lim); xlim(lim);
+    axis square
+    grid on
+    plot(ax{1},i,dtt*(b(i)-1),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
+    plot(ax{2},coefs1_adj_vec(i),maxAmp(i),'o','MarkerFaceColor','m','MarkerEdgeColor','k');
+    xline(0,'w'); yline(0,'w');
+
+    ax{end+1} = nexttile;
+    plot(tt,tsFit1(i,:)); hold on
+    plot(tt,tsFit2(i,:));
+    plot(tt,tsFit(i,:),'w');
+    plot(t,tsResp_vec(i,:),'--w');
+    axis tight square
+    xlabel('time (s)'); ylabel('MR signal');
+    grid on
+    legend('double-gamma','derivatives','sum','data');
+
+
+    %%% Test svd
+    [~,vx_baseMax] = max(base{vv_vec(i)}(:)); % global (linear) index of the max value in base
+    % vx_cur = vx_vec(i);
+    vx_cur = vx_baseMax;
+    % curMask = true(sz);
+    curMask = polyMask{vv_vec(i)};
+    vxSel = find(find(curMask)==vx_cur); % full-grid linear idx vx_cur -> row in masked svd (U/V) space
+    X = permute(tsResp{vv_vec(i)},[4 1 2 3]);
+    [U,S,V] = svd(X(:,curMask),'econ'); % V: spatial singular vector, U: temporal singular vector
+    % whos U S V
+    % A = U*S*V'
+    Sx = permute(diag(S),[2 3 1]);
+    Vx = zeros([size(S,1) sz]);
+    Vx(:,curMask) = permute(V,[2 1]);
+    Vx = permute(Vx,[2 3 1]);
+    Ux = permute(U,[1 3 2]); % U: temporal singular vector
+
+    whos U  S  V
+    whos Ux Sx Vx
+
+    figure;
+    hT = tiledlayout(3,5); hT.TileSpacing = 'compact'; hT.Padding = 'compact'; ax = {};
+    ax{end+1} = nexttile;
+    hIm = imagesc(base{vv_vec(i)}); hold on
+    colormap(ax{end},'gray'); axis image
+    ax{end}.XTick = []; ax{end}.YTick = [];
+    polyRoi = translate(polyShape(vv_vec(i)),-(cropOrigin{vv_vec(i)}(2)-1),-(cropOrigin{vv_vec(i)}(1)-1)); % full-image -> roi (11x11) space: shift by -(col-1),-(row-1)
+    hPoly = plot(polyRoi);
+    hPoly.FaceColor = 'none'; hPoly.EdgeColor = 'r';
+
+
+    ax{end+1} = nexttile;
+    hIm = imagesc(coefs1{vv_vec(i)});
+    ax{end}.CLim = [-1 1].*max(abs(ax{end}.CLim));
+    colormap(ax{end},'jet'); ylabel(colorbar,'coefs1');
+    axis image
+    hold on
+    [vxRow,vxCol] = ind2sub(size(coefs1{vv_vec(i)}),vx_cur); % linear voxel index -> image subscripts
+    plot(vxCol,vxRow,'x','MarkerEdgeColor','k'); % mark voxel vx_cur
+    hIm.AlphaData = actMask{vv_vec(i)}~=0; % hide non-significant voxels (mask==0) via transparency
+    polyRoi = translate(polyShape(vv_vec(i)),-(cropOrigin{vv_vec(i)}(2)-1),-(cropOrigin{vv_vec(i)}(1)-1)); % full-image -> roi (11x11) space: shift by -(col-1),-(row-1)
+    hPoly = plot(polyRoi);
+    hPoly.FaceColor = 'none'; hPoly.EdgeColor = 0.5.*[1 1 1];
+    title(num2str(coefs1{vv_vec(i)}(vx_cur)))
+    ax{end}.YTick = []; ax{end}.XTick = [];
+
+    ax{end+1} = nexttile;
+    hIm = imagesc(coefs1_adj{vv_vec(i)});
+    ax{end}.CLim = [-1 1].*max(abs(ax{end}.CLim));
+    colormap(ax{end},'jet'); ylabel(colorbar,'coefs1_adj');
+    axis image
+    hold on
+    [vxRow,vxCol] = ind2sub(size(coefs1{vv_vec(i)}),vx_cur); % linear voxel index -> image subscripts
+    plot(vxCol,vxRow,'x','MarkerEdgeColor','k'); % mark voxel vx_cur
+    hIm.AlphaData = actMask{vv_vec(i)}~=0; % hide non-significant voxels (mask==0) via transparency
+    polyRoi = translate(polyShape(vv_vec(i)),-(cropOrigin{vv_vec(i)}(2)-1),-(cropOrigin{vv_vec(i)}(1)-1)); % full-image -> roi (11x11) space: shift by -(col-1),-(row-1)
+    hPoly = plot(polyRoi);
+    hPoly.FaceColor = 'none'; hPoly.EdgeColor = 0.5.*[1 1 1];
+    title(num2str(coefs1_adj{vv_vec(i)}(vx_cur)))
+    ax{end}.YTick = []; ax{end}.XTick = [];
+
+    % coefs1_adj{vv_vec(i)}(vx_cur)
+    % coefs1{vv_vec(i)}(vx_cur)
+    % coefs1_vec(i)
+
+
+    ax{end+1} = nexttile(6);
+    plot(squeeze(Sx),'.-w'); axis square tight
+    ylabel('singluar value');
+    xlabel('component idx');
+
+
+    cmpN = 2;
+    for cmpIdx = 1:cmpN
+        ax{end+1} = nexttile(6+cmpIdx);
+        imagesc(Vx(:,:,cmpIdx)); hold on
+        cLim = [-1 1].*max(abs(ax{end}.CLim));
+        ax{end}.CLim = cLim;
+        axis image; colormap(ax{end},'jet');
+        ylabel(colorbar,['sv' num2str(cmpIdx)]);
+        polyRoi = translate(polyShape(vv_vec(i)),-(cropOrigin{vv_vec(i)}(2)-1),-(cropOrigin{vv_vec(i)}(1)-1)); % full-image -> roi (11x11) space: shift by -(col-1),-(row-1)
+        hPoly = plot(polyRoi);
+        hPoly.FaceColor = 'none'; hPoly.EdgeColor = 0.5.*[1 1 1];
+        [vxRow,vxCol] = ind2sub(size(coefs1{vv_vec(i)}),vx_cur); % linear voxel index -> image subscripts
+        plot(vxCol,vxRow,'x','MarkerEdgeColor','k'); % mark voxel vx_cur
+        tmp = Vx(:,:,cmpIdx);
+        title(num2str(tmp(vx_cur)))
+        ax{end}.YTick = []; ax{end}.XTick = [];
+    end
+
+
+    ax{end+1} = nexttile(11);
+    % scl = reshape(Sx(1:cmpN),1,[]) .* reshape(mean(Vx(:,:,1:cmpN),[1 2]),1,[]); % sValue * mean(spatial sVector): component contribution to the space-mean response
+    scl = reshape(Sx(1:cmpN),1,[])
+    plot(t,squeeze(Ux(:,:,1:cmpN)).*scl)
+    legend(arrayfun(@(c) sprintf('sVector %d',c),1:cmpN,'UniformOutput',false),'autoUpdate','off');
+    grid on
+    axis square tight
+
+    % hold on
+    % plot(t,tsResp_vec(i,:),'--w')
+    % % tmp = permute(tsResp{vv_vec(i)},[4 1 2 3]);
+    % % plot(t,tmp(:,vx_cur),'--m')
+
+
+    ax{end+1} = nexttile([2 2]);
+    cmpN = 2;
+    for cmpIdx = 1:cmpN
+        A = U(:,cmpIdx)*S(cmpIdx,cmpIdx)*V(vxSel,cmpIdx)';
+        plot(t,A); hold on
+    end
+    A = U(:,1:cmpN)*S(1:cmpN,1:cmpN)*V(vxSel,1:cmpN)';
+    plot(t,A,'w');
+    tmp = permute(tsResp{vv_vec(i)},[4 1 2 3]);
+    plot(t,tmp(:,vx_cur),'--w');
+    axis tight square
+    xlabel('time (s)'); ylabel('MR signal'); grid on
+    % cmpIdx = 2;
+    % A = U(:,1:cmpIdx)*S(1:cmpIdx,1:cmpIdx)*V(vxSel,1:cmpIdx)';
+    % plot(t,A);
+    V(vxSel,1:10)'.*squeeze(Sx(1:10))
+end
+%%%%
+%%%%
+%%%%
+%%%%
 
 
 
