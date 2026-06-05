@@ -1856,38 +1856,51 @@ end
 %%%%%%%%%%%%%%%%
 %% Summarize roi
 %%%%%%%%%%%%%%%%
-S=1;
-dt      = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.dt;
-dur     = mean(diff(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.onsetList));
-stimDur = mean(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.ondurList);
 
-dtt   = 0.1;
-ttDur = dur;
-ttN   = round(dur/dtt);
-tt    = linspace(0,dtt*(ttN-1),ttN);
-cmd = {src.afni};
-cmd{end+1} = ['3dDeconvolve -nodata ' num2str(ttN) ' ' num2str(dtt) ' \'];
-cmd{end+1} = '-polort -1 -num_stimts 1 \';
-cmd{end+1} = ['-stim_times 1 ''1D: 0'' ''SPMG2(' num2str(stimDur) ')'' \']; % one event at time 0, SPMG2 with stimDur-s boxcar
-cmd{end+1} = ['-x1D SPMG2.x1D -x1D_stop'];          % write design matrix, skip the (empty) solve
-system(strjoin(cmd,newline));
-spmg2 = readmatrix('SPMG2.x1D','FileType','text','CommentStyle','#'); % col1 = canonical HRF, col2 = temporal derivative
-figure
-plot(tt,spmg2); hold on
-plot(tt,sum(spmg2,2),'w');
-legend({'gamma' 'derivative' 'sum'})
-grid on;
 
-polyMask   = {};
-polyShape  = polyshape.empty;
-cropOrigin = {};
-actMask    = {};
-coefs1_adj = {};
-coefs1     = {};
-coefs2_adj = {};
-coefs2     = {};
-tsResp     = {};
-base       = {};
+%%%
+%%%
+%%%
+%%%
+if 0
+    S=1;
+    dt      = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.dt;
+    dur     = mean(diff(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.onsetList));
+    stimDur = mean(rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volResp.mag.actCat.param.dsgn.ondurList);
+
+    dtt   = 0.1;
+    ttDur = dur;
+    ttN   = round(dur/dtt);
+    tt    = linspace(0,dtt*(ttN-1),ttN);
+    cmd = {src.afni};
+    cmd{end+1} = ['3dDeconvolve -nodata ' num2str(ttN) ' ' num2str(dtt) ' \'];
+    cmd{end+1} = '-polort -1 -num_stimts 1 \';
+    cmd{end+1} = ['-stim_times 1 ''1D: 0'' ''SPMG2(' num2str(stimDur) ')'' \']; % one event at time 0, SPMG2 with stimDur-s boxcar
+    cmd{end+1} = ['-x1D SPMG2.x1D -x1D_stop'];          % write design matrix, skip the (empty) solve
+    system(strjoin(cmd,newline));
+    spmg2 = readmatrix('SPMG2.x1D','FileType','text','CommentStyle','#'); % col1 = canonical HRF, col2 = temporal derivative
+    figure
+    plot(tt,spmg2); hold on
+    plot(tt,sum(spmg2,2),'w');
+    legend({'gamma' 'derivative' 'sum'})
+    grid on;
+
+    polyMask   = {};
+    polyShape  = polyshape.empty;
+    cropOrigin = {};
+    actMask    = {};
+    coefs1_adj = {};
+    coefs1     = {};
+    coefs2_adj = {};
+    coefs2     = {};
+    tsResp     = {};
+    base       = {};
+end
+%%%
+%%%
+%%%
+%%%
+
 
 
 
@@ -1967,7 +1980,11 @@ adjPoly(hIol,'dilate1','w',1);
 
 
 
-            if 1
+            %%%
+            %%%
+            %%%
+            %%%
+            if 0
                 %%% compile for assessing coef validity %%%
                 for v = 1:length(roi{S}.(acq).(task).vessel)
                     if ~strcmp(roi{S}.(acq).(task).vessel(v).class       ,'artery'         ); continue; end
@@ -2027,6 +2044,11 @@ adjPoly(hIol,'dilate1','w',1);
 
                 end
             end
+            %%%
+            %%%
+            %%%
+            %%%
+
 
 
 
@@ -2263,7 +2285,7 @@ end
 
 
 
-
+if 0
 metricList = {};
 task = 'task_50sPrd5sDur';
 for m = 1:length(roi{S}.(acq).(task).vessel(1).smr)
@@ -2302,10 +2324,47 @@ hFfull = grpAvPlt2(roi,subList,acq,task,'psd_dilate1_actQ'         ,[]        ,[
          grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','timeFreq','bNa15sec','avVox-catVes');
 hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'bNa15sec','avVox-catVes');
 grpAvRePlt(hFfull,hFmd)
+end
 %% %%%%%%%%%%%%%
 
 
 
+%%%%%%%%
+%% dV/dD
+%%%%%%%%
+
+S = 1;
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+v = 1;
+roi{S}.(acq).(task).vessel(v).im.resp
 
 
+for S = 1:size(subList,1)
+    for A = 1:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~strcmp(task,'task_50sPrd5sDur'); continue; end
+            if ~isfield(rCond{S}.(acq),task); continue; end
+            
 
+            roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+
+            for v = 1:length(roi{S}.(acq).(task).vessel)
+                roi{S}.(acq).(task).vessel(v).im.ts.im
+            end
+            
+        end
+    end
+end
+
+return
+save tmp -v7.3
+return
+load tmp
+
+
+%% %%%%%
