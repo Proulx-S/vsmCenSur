@@ -4,7 +4,8 @@ close all
 
 
 % dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile.mat';
-dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile20250630.mat'; % after reprocessing of vfMRIpc
+% dataIndexFile = '~/work/generalPreproc/doIt_generalPreproc/vsmDiamCenSur_indexFile20250630.mat'; % after reprocessing of vfMRIpc
+dataIndexFile = '/local/users/Proulx-S/generalPreproc/vsmDiamCenSur_indexFile20250630.mat';
 %%%%%%%%%%%%%%%%%%%%%
 %% Set up environment
 %%%%%%%%%%%%%%%%%%%%%
@@ -94,6 +95,8 @@ end
 
 
 if 0
+tool = 'bassReg2'; repoURL = 'https://github.com/Proulx-S/bassReg2'; subTool = ''; branch = '';
+gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load preprocessed data
@@ -711,7 +714,8 @@ end
 % winSz = rCond{S}.vfMRI_dflt_none.task_50sPrd5sDur.volMt.run(1).param.psdTrialGram.dsgn.win(1);
 % K;
 % filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
-filename = fullfile(pwd,'workScript_20260116.mat');
+% filename = fullfile(pwd,'workScript_20260116.mat');
+filename = fullfile(pwd,'workScript_20260606.mat');
 disp(['saving ' filename])
 save(filename,'-v7.3')
 else
@@ -722,7 +726,8 @@ else
 % filename = 'results20250505_K3-5_winSz30tPts.mat';
 % filename = 'results20250508_K4-5_winSz28tPts.mat';
 % filename = fullfile(pwd,'workScript_tmp2.mat');
-filename = fullfile(pwd,'workScript_20260116.mat');
+% filename = fullfile(pwd,'workScript_20260116.mat');
+filename = fullfile(pwd,'workScript_20260606.mat');
 disp(['loading ' filename])
 load(filename)
 end
