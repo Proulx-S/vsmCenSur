@@ -56,7 +56,7 @@ addpath(genpath(fullfile(toolDir,tool)))
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
 
-tool = 'vfMRItool'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = '';
+tool = 'vfMRItools'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = '';
 gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 
 tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool = 'external/freesurfer'; branch = '';
@@ -163,8 +163,6 @@ clear index
 %% %%%%%%%%%%%%%%%%%%%%%%
 
 
-
-
 forceThis   = 0;
 verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -183,8 +181,6 @@ for S = 1:length(rCond)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 
 forceThis   = 0;
@@ -256,8 +252,6 @@ rCondOrig = rCond;
 rCond = rCondExcl; clear rCondExcl
 
 
-
-
 forceThis   = 0;
 verboseThis = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -272,8 +266,6 @@ verboseThis = 0;
     end
 % end
 %% %%%%%%%%%%%%%%%%%%%%%
-
-
 
 
 forceThis   = 0;
@@ -320,8 +312,6 @@ for S = 1:size(subList,1)
     end
 end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
