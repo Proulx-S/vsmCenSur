@@ -2324,7 +2324,7 @@ end
 %% %%%%%%%%%%%%%
 end
 
-return
+
 
 %%%%%%%%
 %% dV/dD
@@ -2355,7 +2355,7 @@ for S = 1:size(subList,1)
     end
 end
 
-
+return
 
 %%% Extract Faa
 for S = 1:size(subList,1)
