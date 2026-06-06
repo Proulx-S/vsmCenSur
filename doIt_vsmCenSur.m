@@ -59,6 +59,8 @@ tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool 
 gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
 mathworksClone(toolURL, fullfile(toolDir, tool));
+tool = 'shplot'; repoURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/submissions/64990/versions/6/download/zip';
+mathworksClone(repoURL, fullfile(toolDir, tool));
 
 
 
@@ -1853,6 +1855,7 @@ end
 % vessels = {vessels(ismember({vessels.class},'artery')) vessels(ismember({vessels.class},'vein'))};
 % roi{S}.(acq).(task).vessels = mergeRoi2(vessels);
 
+if 0
 %%%%%%%%%%%%%%%%
 %% Summarize roi
 %%%%%%%%%%%%%%%%
@@ -2326,6 +2329,7 @@ hFmd   = grpAvPlt2(roi,subList,acq,task,'psdTrialGram_dilate1_actQ','freq'    ,'
 grpAvRePlt(hFfull,hFmd)
 end
 %% %%%%%%%%%%%%%
+end
 
 
 
@@ -2333,13 +2337,7 @@ end
 %% dV/dD
 %%%%%%%%
 
-S = 1;
-acq = 'vfMRI_dflt_none';
-task = 'task_50sPrd5sDur';
-v = 1;
-roi{S}.(acq).(task).vessel(v).im.resp
-
-
+%%% Extract area, diameter and velocity proxies
 for S = 1:size(subList,1)
     for A = 1:length(acqList)
         acq  = acqList{A};
@@ -2349,22 +2347,219 @@ for S = 1:size(subList,1)
             task = taskList{T};
             if ~strcmp(task,'task_50sPrd5sDur'); continue; end
             if ~isfield(rCond{S}.(acq),task); continue; end
-            
 
             roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
-
-            for v = 1:length(roi{S}.(acq).(task).vessel)
-                roi{S}.(acq).(task).vessel(v).im.ts.im
-            end
-            
+            roi{S}.(acq).(task).vessel = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
+            % [roi{S}.(acq).(task).vessel,fAll] = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
+            % fAll = [fAll{:}];
+            % figure
+            % histogram(fAll)
         end
     end
 end
 
+
+
+%%% Extract Faa
+for S = 1:size(subList,1)
+    for A = 1:length(acqList)
+        acq  = acqList{A};
+        if ~isfield(rCond{S},acq)          ; continue; end
+        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+        for T = 1:length(taskList)
+            task = taskList{T};
+            if ~strcmp(task,'task_50sPrd5sDur'); continue; end
+            if ~isfield(rCond{S}.(acq),task); continue; end
+
+            %%% Compute Faa
+            roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task));
+            % roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,[],[2 6]);
+        end
+    end
+end
+
+
+% Extract relevant vessels
+vessel = {};
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    for v = 1:length(roi{S}.(acq).(task).vessel)
+        if ~strcmp(roi{S}.(acq).(task).vessel(v).class       ,'artery'         ); continue; end
+        if        ~roi{S}.(acq).(task).vessel(v).anot_sig                       ; continue; end
+        if ~strcmp(roi{S}.(acq).(task).vessel(v).anot_actType,'center-surround'); continue; end
+        vessel{end+1} = roi{S}.(acq).(task).vessel(v);
+        vessel{end}.sId = subList{S};
+    end
+end
+vessel = cat(1,vessel{:});
+
+
+
+% design (onset list / stim duration) for this acq/task
+dsgn = [];
+for S = 1:size(subList,1)
+    if isfield(roi{S},acq) && isfield(roi{S}.(acq),task)
+        dsgn = rCond{S}.(acq).(task).dsgn; break
+    end
+end
+
+
 return
-save tmp -v7.3
-return
-load tmp
+
+
+
+% faa during- and post-stim windows (time points on the ts grid, rel. to onset)
+iStartStim = 0; iEndStim = 7;
+iStartPost = 8; iEndPost = Inf;
+winStim = [iStartStim iEndStim];
+winPost = [iStartPost iEndPost];
+vessel  = getFaa(vessel,[],winStim); % append during-stim faa to faa.res
+vessel  = getFaa(vessel,[],winPost); % append post-stim  faa to faa.res
+
+
+%%%%%%%%%%%%%%%%%%%
+%% Plot each vessel
+%%%%%%%%%%%%%%%%%%%
+ax1 = {}; ax2 = {}; ax3 = {};
+dDoDc = {}; dVoVc = {}; tc = {};                 % tile-1 response timecourse
+TTc = {}; FFc = {};                              % tile-2 faa timecourse
+FFall = {}; FFstim = {}; FFpost = {};            % faa scalars
+for v = 1:length(vessel)
+    res   = vessel(v).faa.res;
+    kTc   = find(arrayfun(@(x) isscalar(x.dN)        ,res),1,'last'); % timecourse
+    kStim = find(arrayfun(@(x) isequal(x.dN,winStim) ,res),1,'last');
+    kPost = find(arrayfun(@(x) isequal(x.dN,winPost) ,res),1,'last');
+
+    % tile-1 data: trial-averaged response (deconvolved), first frame = baseline
+    A  = vessel(v).im.respArea.vec;
+    V  = vessel(v).im.respVel.vec;
+    D  = 2.*sqrt(A./pi);
+    dDoD = (D - D(1))./D(1);
+    dVoV = (V - V(1))./V(1);
+    dt   = vessel(v).im.respArea.dt;
+    t    = linspace(0,(numel(A)-1)*dt,numel(A));
+    dDoDc{v,1} = dDoD; dVoVc{v,1} = dVoV; tc{v,1} = t;
+
+    % tile-3 data: full ts proxies (recomputed as in getFaa)
+    Vts = cat(1,vessel(v).im.tsVel.vec{:});
+    Dts = cat(1,vessel(v).im.tsD.vec{:});
+    dVoVts = (Vts - mean(Vts,2))./mean(Vts,2);
+    dDoDts = (Dts - mean(Dts,2))./mean(Dts,2);
+
+    % faa values
+    TTc{v,1}    = res(kTc).t;   FFc{v,1} = res(kTc).ts;
+    FFall{v,1}  = vessel(v).faa.all;
+    FFstim{v,1} = res(kStim).ts;
+    FFpost{v,1} = res(kPost).ts;
+
+    nRun   = size(dVoVts,1);
+    nTrial = nRun.*length(dsgn.onsetList);
+
+    figs(v) = figure; ht = tiledlayout(1,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
+    % title(ht,'subjId=' + string(vessel(v).sId) + '; vesselId=' + string(vessel(v).id) + ...
+            %   '; Ntrials=' + string(nTrial) + '; Nrun=' + string(nRun))
+
+    % dD/D and dV/V timecourse
+    ax1{end+1} = nexttile; hold on
+    hP1 = plot(t,dDoD,'c-');
+    hP2 = plot(t,dVoV,'y-');
+    ylabel('dX/X'); xlabel('post stim onset time (s)')
+    grid on; axis tight
+    yLim = ylim; yLim = [-1 1].*max(abs(yLim)); ylim(yLim);
+    axis square
+    hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+    legend([hP1 hP2 hP3],{'dD/D','dV/V','stimulus duration'},'Location','best')
+
+    % faa timecourse
+    ax2{end+1} = nexttile(2); hold on
+    hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
+    ylabel('faa'); xlabel('post stim onset time (s)')
+    xlim(ax1{end}.XLim); grid on
+    hL1 = plot([res(kStim).tStart res(kStim).tEnd],[1 1].*FFstim{v,1},'w:');
+    hL2 = plot([res(kPost).tStart res(kPost).tEnd],[1 1].*FFpost{v,1},'w:');
+    dNtc = res(kTc).dN; dtTs = vessel(v).faa.align.dt;
+    legend([hP1,hL1],[num2str((dNtc*2+1)*dtTs) '-sec sliding window'],'faa during/post stim','AutoUpdate','off','Location','best')
+
+    % faa using all time points
+    ax3{end+1} = nexttile(3); hold on
+    hP1 = scatter(dDoDts(:),dVoVts(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
+    alpha(hP1,0.1); axis square
+    lim = [-1 1].*max(abs([dDoDts(:); dVoVts(:)]));
+    xlim(lim); ylim(lim); grid minor
+    xlabel('dD/D'); ylabel('dV/V')
+    ok   = ~isnan(dDoDts) & ~isnan(dVoVts);
+    fit1 = fit(dDoDts(ok),dVoVts(ok),fittype({'x'})); % slope-only, as in getFaa
+    X    = [min(dDoDts(ok)) max(dDoDts(ok))];
+    hFit = plot(ax3{end},X,fit1(X),'r-');
+    legend([hP1 hFit],'single tPts','faa = ' + string(FFall{v,1}),'Location','best')
+end
+dDoD   = cat(1,dDoDc{:}); dVoV = cat(1,dVoVc{:}); t = cat(1,tc{:});
+TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});
+FFall  = cat(1,FFall{:});
+FFstim = cat(1,FFstim{:});
+FFpost = cat(1,FFpost{:});
+
+% Harmonize across vessels
+ax1 = [ax1{:}]; ax2 = [ax2{:}]; ax3 = [ax3{:}];
+yLim = get(ax1,'YLim'); yLim = [-1 1].*max(abs([yLim{:}])); set(ax1,'YLim',yLim);
+yLim = get(ax2,'YLim'); yLim = cat(1,yLim{:}); yLim = [min(yLim(:,1)) max(yLim(:,2))]; set(ax2,'YLim',yLim);
+set(ax3,'YLim',[-0.75 0.75],'XLim',[-0.75 0.75]);
+for i = 1:length(ax1)
+    hP = findobj(ax1(i).Children,'Type','patch');
+    yLim = ax1(i).YLim;
+    hP.Vertices = [[0 1 1 0]'.*mean(dsgn.ondurList) ([1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim))'];
+    yLim = ax2(i).YLim;
+    patch(ax2(i),[0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Summary across vessels
+%%%%%%%%%%%%%%%%%%%%%%%%%
+figs(end+1) = figure; ht = tiledlayout(1,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
+title(ht,'summary across vessels (N=' + string(size(dDoD,1)) + ' vessels)')
+
+ax11 = nexttile; hold on
+hP1 = shplot(t(1,:),mean(dDoD,1),std(dDoD,[],1)./sqrt(size(dDoD,1)));
+delete([hP1.upper hP1.lower]);
+hP1.line.Color = 'c'; hP1.patch.FaceColor = 'c'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
+hP2 = shplot(t(1,:),mean(dVoV,1),std(dVoV,[],1)./sqrt(size(dVoV,1)));
+delete([hP2.upper hP2.lower]);
+hP2.line.Color = 'y'; hP2.patch.FaceColor = 'y'; hP2.patch.FaceAlpha = 0.25; hP2.patch.EdgeColor = 'none';
+ylabel('dX/X'); xlabel('post stim onset time (s)')
+grid on; axis tight
+yLim = ylim; yLim = [-1 1].*max(abs(yLim)); ylim(yLim);
+axis square
+hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+legend([hP1.line hP2.line hP3],{'dD/D','dV/V','stimulus duration'},'Location','best')
+
+ax22 = nexttile; hold on
+hP1 = shplot(TT(1,:),mean(FF,1),std(FF,[],1)./sqrt(size(FF,1)));
+delete([hP1.upper hP1.lower]);
+hP1.line.Color = 'w'; hP1.patch.FaceColor = 'w'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
+ylabel('faa'); xlabel('post stim onset time (s)')
+grid on; xlim(ax11.XLim)
+yLim = ylim;
+patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+axis square
+tStim = [vessel(1).faa.res(kStim).tStart vessel(1).faa.res(kStim).tEnd];
+hB = errorbar(mean(tStim),mean(FFstim),std(FFstim)./sqrt(length(FFstim)),std(FFstim)./sqrt(length(FFstim)),range(tStim)/2,range(tStim)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+tPost = [vessel(1).faa.res(kPost).tStart vessel(1).faa.res(kPost).tEnd];
+hB = errorbar(mean(tPost),mean(FFpost),std(FFpost)./sqrt(length(FFpost)),std(FFpost)./sqrt(length(FFpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+legend([hP1.line,hB],[num2str((dNtc*2+1)*dtTs) '-sec sliding window'],'during/post stim','AutoUpdate','off','Location','best')
+
+ax33 = nexttile; hold on
+Y = [FFall FFstim FFpost];
+plot(Y','.-w'); axis square
+set(gca,'XTick',1:3,'XTickLabel',{'all data','during stim','post stim'})
+ylabel('faa'); xlim([0.5 3.5])
+ax33.YGrid = 'on';
+[h,p,ci,stats] = ttest(FFstim,FFpost);
+title('faa during vs. post stim: p=' + string(p) + '; t=' + string(stats.tstat))
 
 
 %% %%%%%
