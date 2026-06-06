@@ -56,6 +56,9 @@ addpath(genpath(fullfile(toolDir,tool)))
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
 
+tool = 'vfMRItool'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = '';
+gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
+
 tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool = 'external/freesurfer'; branch = '';
 gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 tool = 'multigradient'; toolURL = 'https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/4dc86a0f-886b-488c-9318-59a1c9fb0f3e/e5d982ae-3ddd-4768-8b34-8d71d956d893/packages/zip';
@@ -1847,11 +1850,6 @@ end
 
 
 
-
-
-
-
-
 % % summarize rois (vox2roi)
 % vessels = roi{S}.(acq).(task).vessel;
 % ismember({vessels.class},'artery')
@@ -2336,7 +2334,7 @@ end
 %% %%%%%%%%%%%%%
 end
 
-
+return
 
 %%%%%%%%
 %% dV/dD
@@ -2353,12 +2351,16 @@ for S = 1:size(subList,1)
             if ~strcmp(task,'task_50sPrd5sDur'); continue; end
             if ~isfield(rCond{S}.(acq),task); continue; end
 
-            roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
-            roi{S}.(acq).(task).vessel = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
-            % [roi{S}.(acq).(task).vessel,fAll] = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
-            % fAll = [fAll{:}];
-            % figure
-            % histogram(fAll)
+            roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel,{'resp','ts'});
+            
+
+            % % roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+            % roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel);
+            % % roi{S}.(acq).(task).vessel = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
+            % % [roi{S}.(acq).(task).vessel,fAll] = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
+            % % fAll = [fAll{:}];
+            % % figure
+            % % histogram(fAll)
         end
     end
 end

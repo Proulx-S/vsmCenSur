@@ -4,10 +4,19 @@
 			"path": "."
 		},
 		{
+			"name": "tools/util",
 			"path": "../tools/util"
 		},
 		{
+			"name": "tools/vasomoTools",
 			"path": "../tools/vasomoTools"
+		},
+		{
+			"name": "tools/vfMRItools",
+			"path": "../tools/vfMRItools"
+		},
+		{
+			"path": "../tools/bassReg2"
 		}
 	],
 	"settings": {
