@@ -2341,7 +2341,7 @@ for S = 1:size(subList,1)
             if ~strcmp(task,'task_50sPrd5sDur'); continue; end
             if ~isfield(rCond{S}.(acq),task); continue; end
 
-            roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel,{'resp','ts'});
+            roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel,{'resp','ts'},1);
             
 
             % % roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
@@ -2355,7 +2355,7 @@ for S = 1:size(subList,1)
     end
 end
 
-return
+
 
 %%% Extract Faa
 for S = 1:size(subList,1)
@@ -2393,6 +2393,19 @@ end
 vessel = cat(1,vessel{:});
 
 
+% vessel = getAreaDiamVelProxy(vessel,{'resp','ts'},1);
+% vessel = getFaa(vessel,rCond{S}.(acq).(task));
+% winCols = [vessel.faa];
+% winCols = {winCols.winCols};
+% load dVdA_idx
+% winCols = winCols';
+% idxidx
+% for v = 1:length(vessel)
+%     winCols{v}'
+%     idxidx{v}
+% end
+
+
 
 % design (onset list / stim duration) for this acq/task
 dsgn = [];
@@ -2401,10 +2414,6 @@ for S = 1:size(subList,1)
         dsgn = rCond{S}.(acq).(task).dsgn; break
     end
 end
-
-
-return
-
 
 
 % faa during- and post-stim windows (time points on the ts grid, rel. to onset)
@@ -2416,9 +2425,8 @@ vessel  = getFaa(vessel,[],winStim); % append during-stim faa to faa.res
 vessel  = getFaa(vessel,[],winPost); % append post-stim  faa to faa.res
 
 
-%%%%%%%%%%%%%%%%%%%
-%% Plot each vessel
-%%%%%%%%%%%%%%%%%%%
+
+%%% Plot each vessel
 ax1 = {}; ax2 = {}; ax3 = {};
 dDoDc = {}; dVoVc = {}; tc = {};                 % tile-1 response timecourse
 TTc = {}; FFc = {};                              % tile-2 faa timecourse
@@ -2430,20 +2438,21 @@ for v = 1:length(vessel)
     kPost = find(arrayfun(@(x) isequal(x.dN,winPost) ,res),1,'last');
 
     % tile-1 data: trial-averaged response (deconvolved), first frame = baseline
-    A  = vessel(v).im.respArea.vec;
+    % A  = vessel(v).im.respArea.vec;
     V  = vessel(v).im.respVel.vec;
-    D  = 2.*sqrt(A./pi);
+    D  = vessel(v).im.respD.vec;
+    % D  = 2.*sqrt(A./pi);
     dDoD = (D - D(1))./D(1);
     dVoV = (V - V(1))./V(1);
     dt   = vessel(v).im.respArea.dt;
-    t    = linspace(0,(numel(A)-1)*dt,numel(A));
+    t    = linspace(0,(numel(D)-1)*dt,numel(D));
     dDoDc{v,1} = dDoD; dVoVc{v,1} = dVoV; tc{v,1} = t;
 
     % tile-3 data: full ts proxies (recomputed as in getFaa)
     Vts = cat(1,vessel(v).im.tsVel.vec{:});
     Dts = cat(1,vessel(v).im.tsD.vec{:});
-    dVoVts = (Vts - mean(Vts,2))./mean(Vts,2);
-    dDoDts = (Dts - mean(Dts,2))./mean(Dts,2);
+    dVoVts = (Vts - mean(Vts,2,'omitnan'))./mean(Vts,2,'omitnan');
+    dDoDts = (Dts - mean(Dts,2,'omitnan'))./mean(Dts,2,'omitnan');  
 
     % faa values
     TTc{v,1}    = res(kTc).t;   FFc{v,1} = res(kTc).ts;
@@ -2473,7 +2482,8 @@ for v = 1:length(vessel)
     ax2{end+1} = nexttile(2); hold on
     hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
     ylabel('faa'); xlabel('post stim onset time (s)')
-    xlim(ax1{end}.XLim); grid on
+    ax1{end}.XLim = xlim; grid on
+    % xlim(ax1{end}.XLim); grid on
     hL1 = plot([res(kStim).tStart res(kStim).tEnd],[1 1].*FFstim{v,1},'w:');
     hL2 = plot([res(kPost).tStart res(kPost).tEnd],[1 1].*FFpost{v,1},'w:');
     dNtc = res(kTc).dN; dtTs = vessel(v).faa.align.dt;
@@ -2512,9 +2522,8 @@ for i = 1:length(ax1)
 end
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Summary across vessels
-%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Summary across vessels
 figs(end+1) = figure; ht = tiledlayout(1,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
 title(ht,'summary across vessels (N=' + string(size(dDoD,1)) + ' vessels)')
 
