@@ -2328,7 +2328,7 @@ end
 
 
 printIt = 1;   % figure export level: 0:none  1:png  2:png+fig  3:png+fig+svg+eps
-intType = 'Y';        % right-axis intercept timecourse on the faa panels: 'X' or 'Y'
+intType = 'Qexact';   % right-axis timecourse: 'X'/'Y' fit intercept, or 'Qexact'/'Qaprx' = dQ/Q flow (exact / 1st-order)
 intCI   = [];         % intercept right-axis range: central intCI%% of pooled values; 100 = full min-max; [] = auto
 scatCI  = 100;         % scatter dD/D-dV/V half-range: central scatCI%% of pooled |values|; 100 or [] = full (max)
 dN      = 1;
@@ -2430,7 +2430,7 @@ vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
 
 %%% Plot each vessel
 ax1 = {}; ax2 = {}; ax3 = {}; ax4 = {}; ax5 = {}; axPre = {};
-dDoDc = {}; dVoVc = {}; tc = {};                 % tile-1 response timecourse
+dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
 TTc = {}; FFc = {}; IItc = {};                   % faa timecourse + selected intercept (intType) timecourse
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
@@ -2449,11 +2449,15 @@ end
 vSc = vSc(isfinite(vSc));
 if isempty(scatCI); scatLim = max(abs(vSc)); else; scatLim = prctile(abs(vSc),scatCI); end
 intCol  = [0.30 0.85 0.40];                       % right-axis intercept timecourse color
-switch upper(intType)                             % select which poly1 fit intercept to plot (intType flag)
-    case 'X'; intFld='xint'; intLbl='Xint (dD/D at dV/V=0)'; intPreLbl='Xint - Xint_{pre}'; intLeg='Xint';
-    case 'Y'; intFld='yint'; intLbl='Yint (dV/V at dD/D=0)'; intPreLbl='Yint - Yint_{pre}'; intLeg='Yint';
-    otherwise; error('intType must be ''X'' or ''Y''');
+switch upper(intType)                             % select the right-axis timecourse (intType flag)
+    case 'X';      intFld='xint'; intLbl='Xint (dD/D at dV/V=0)'; intPreLbl='Xint - Xint_{pre}'; intLeg='Xint';
+    case 'Y';      intFld='yint'; intLbl='Yint (dV/V at dD/D=0)'; intPreLbl='Yint - Yint_{pre}'; intLeg='Yint';
+    case 'QEXACT'; intFld='';     intLbl='dQ/Q (exact)';     intPreLbl='dQ/Q (exact)';     intLeg='dQ/Q exact';
+    case 'QAPRX';  intFld='';     intLbl='dQ/Q (1st-order)'; intPreLbl='dQ/Q (1st-order)'; intLeg='dQ/Q approx';
+    otherwise; error('intType must be ''X'', ''Y'', ''Qexact'' or ''Qaprx''');
 end
+isQ    = startsWith(upper(intType),'Q');  % any Q variant -> right axis shows the dQ/Q response timecourse
+qExact = strcmpi(intType,'Qexact');       % exact (V*A) vs first-order (dV/V+dA/A) dQ/Q
 for v = 1:length(vessel)
     res   = vessel(v).faa.res;
     kTc   = find(arrayfun(@(x) isscalar(x.dN)        ,res),1,'last'); % timecourse
@@ -2462,15 +2466,19 @@ for v = 1:length(vessel)
     kPre  = find(arrayfun(@(x) isequal(x.dN,winPre)  ,res),1,'last');
 
     % tile-1 data: trial-averaged response (deconvolved), first frame = baseline
-    % A  = vessel(v).im.respArea.vec;
+    A  = vessel(v).im.respArea.vec;
     V  = vessel(v).im.respVel.vec;
     D  = vessel(v).im.respD.vec;
     % D  = 2.*sqrt(A./pi);
     dDoD = (D - D(1))./D(1);
     dVoV = (V - V(1))./V(1);
+    dAoA  = (A - A(1))./A(1);
+    dQoQe = (1+dVoV).*(1+dAoA) - 1;    % volumetric flow change dQ/Q, exact (Q = V*A)
+    dQoQa = dVoV + dAoA;               % volumetric flow change dQ/Q, first-order approximation
+    if qExact; dQoQ = dQoQe; else; dQoQ = dQoQa; end   % the one selected for display (used when isQ)
     dt   = vessel(v).im.respArea.dt;
     t    = linspace(0,(numel(D)-1)*dt,numel(D));
-    dDoDc{v,1} = dDoD; dVoVc{v,1} = dVoV; tc{v,1} = t;
+    dDoDc{v,1} = dDoD; dVoVc{v,1} = dVoV; dQoQec{v,1} = dQoQe; dQoQac{v,1} = dQoQa; tc{v,1} = t;
 
     % tile-3 data: full ts proxies (recomputed as in getFaa)
     Vts = cat(1,vessel(v).im.tsVel.vec{:});
@@ -2492,7 +2500,8 @@ for v = 1:length(vessel)
     colsPre  = selCols(capPre);
 
     % faa values
-    TTc{v,1}    = res(kTc).t;   FFc{v,1} = res(kTc).ts;   IItc{v,1} = res(kTc).(intFld);
+    TTc{v,1}    = res(kTc).t;   FFc{v,1} = res(kTc).ts;
+    if isQ; IItc{v,1} = dQoQ; else; IItc{v,1} = res(kTc).(intFld); end   % right-axis timecourse (intercept or dQ/Q)
     FFall{v,1}  = vessel(v).faa.all;
     FFpre{v,1}  = res(kPre).ts;
     FFstim{v,1} = res(kStim).ts;
@@ -2543,9 +2552,10 @@ for v = 1:length(vessel)
     tPost = [res(kPost).tStart res(kPost).tEnd];
     hB2 = errorbar(mean(tPost),FFpost{v,1},0,0,range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
     hB2.MarkerFaceColor = hB2.MarkerEdgeColor;
-    % Y-intercept (dV/V at dD/D=0; poly1 p2) sliding-window timecourse on the right axis
+    % right-axis timecourse: fit intercept (X/Y, faa grid) or dQ/Q flow (Q, response grid)
     yyaxis right
-    hI = plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol);
+    if isQ; hI = plot(t,dQoQ,'-','Color',intCol);
+    else;   hI = plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
     ax2{end}.YColor = intCol;
     ylabel(intLbl)
     yyaxis left   % leave left (faa) active for downstream harmonize/patch
@@ -2616,7 +2626,9 @@ for v = 1:length(vessel)
     legend([hP1 hFit],'post-stim tPts','faa = ' + string(FFpost{v,1}),'Location','northeast')
 end
 dDoD   = cat(1,dDoDc{:}); dVoV = cat(1,dVoVc{:}); t = cat(1,tc{:});
+dQoQe  = cat(1,dQoQec{:}); dQoQa = cat(1,dQoQac{:});   % both flow-change variants (variables of interest)
 TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});   IItc = cat(1,IItc{:});
+RTt    = TT(1,:); if isQ; RTt = t(1,:); end   % right-axis timecourse grid (faa grid, or response grid for dQ/Q)
 FFall  = cat(1,FFall{:});
 FFpre  = cat(1,FFpre{:});
 FFstim = cat(1,FFstim{:});
@@ -2625,7 +2637,9 @@ YIall  = cat(1,YIall{:});  XIall  = cat(1,XIall{:});
 YIpre  = cat(1,YIpre{:});  XIpre  = cat(1,XIpre{:});
 YIstim = cat(1,YIstim{:}); XIstim = cat(1,XIstim{:});
 YIpost = cat(1,YIpost{:}); XIpost = cat(1,XIpost{:});
-if strcmpi(intType,'Y'); IIpre = YIpre; else; IIpre = XIpre; end   % pre-stim value of the selected intercept
+% pre-stim value of the selected right-axis quantity (for the normalized panel). dQ/Q is
+% already baseline-relative (no pre-stim window on the response grid), so its pre value is 0.
+if isQ; IIpre = zeros(numel(vessel),1); elseif strcmpi(intType,'Y'); IIpre = YIpre; else; IIpre = XIpre; end
 % right-axis ranges = central intCI% interval of the pooled intercept values (clips blow-ups).
 % intCI=100 -> exact [min max]; intCI=[] -> auto. Raw (IItc, used by per-vessel + ax22) and
 % pre-normalized (IItc-IIpre, used by ax44) have different spreads, so each gets its own range.
@@ -2710,7 +2724,7 @@ hB.MarkerFaceColor = hB.MarkerEdgeColor;
 % shplot uses uistack, which fails on a yyaxis secondary axis, so build the
 % shaded line manually (same look: line + 0.25-alpha band).
 yyaxis right
-xx = TT(1,:); ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
+xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
 patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
 hPi = plot(xx,ym,'-','Color',intCol);
 ax22.YColor = intCol;
@@ -2757,7 +2771,7 @@ hB = errorbar(mean(tPost),mean(dPost),std(dPost)./sqrt(length(dPost)),std(dPost)
 hB.MarkerFaceColor = hB.MarkerEdgeColor;
 % Yint normalized timecourse on the right axis (manual band; shplot's uistack fails on yyaxis right)
 yyaxis right
-xx = TT(1,:); ym = mean(IItcn,1); ye = std(IItcn,[],1)./sqrt(size(IItcn,1));
+xx = RTt; ym = mean(IItcn,1); ye = std(IItcn,[],1)./sqrt(size(IItcn,1));
 patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
 hPi = plot(xx,ym,'-','Color',intCol);
 ax44.YColor = intCol;
