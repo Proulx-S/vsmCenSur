@@ -43,30 +43,31 @@ because `getAlign` ignores the dummy scans that the AFNI deconvolution accounts 
 `dsgn.onsetList`, the dummy offset is tracked as a property of the ts grid and carried
 through the pipeline:
 
-1. **`runCond` class** (`tools/vasomoTools/runCond.m`) — new property `tsStartTime`:
-   the time of the first preprocessed (dummy-removed) ts frame relative to the full
-   (with-dummy) acquisition 0s start = `(nFrameOrig-nFrame)*tr`.
+1. **`runCond` class** (`tools/util/runCond.m`, and its identical `vasomoTools` copy
+   pending the vasomoTools sunset) — new property `tsStartTime`: the time of the first
+   preprocessed (dummy-removed) ts frame relative to the full (with-dummy) acquisition 0s
+   start = `(nFrameOrig-nFrame)*tr`.
 2. **`%% Load preprocessed data`** — populates `rCond{S}.(acq).(task).tsStartTime` for
    every run condition (so a regenerated checkpoint carries it).
 3. **`%% Get ROI data`** — copies it to `roi{S}.(acq).(task).tsStartTime`.
 4. **`indexTs2Trial.m`** (`tools/vfMRItools`) — builds its onset-aligned grid in *full-ts
    time*: `tts = tsStartTime + (0:nT-1)*dt` (was `linspace(0,…)`), reading `tsStartTime`
    from `rCond` (**required — errors informatively if missing/empty**, no fallback). So
-   onsets land on the true frame and **its outputs (`winCols`, `t`, `tStart`, `tEnd`) are
-   true-onset-relative at the source** — no downstream relabel, and the sliding-window
-   forward bound is correct (no next-trial tail contamination). Its consumers
-   (`getFaa2`, `getAreaDiamVelFlowFaaProxyFromTs` → `faa2`, `fromTs`) inherit this
-   automatically.
-5. **`%% dV/dD`** — reads `roi…tsStartTime` (required, no fallback). The `fromTs`/`faa2`
-   timecourses are already correct (from `indexTs2Trial`) and are **not** touched. Only
-   the legacy **`getFaa`** path (the white faa panel + during/post markers/scatters) still
-   needs correction, because `getFaa`'s own `getAlign` (in `vasomoTools`, to be sunset) is
-   still on the 0-based grid: its `winStim/winPost/winPre` are shifted by `-nDS` and its
-   `faa.res` `.t/.tStart/.tEnd` are shifted by `+tsStartTime`.
+   onsets land on the true frame and **its outputs are true-onset-relative at the source**
+   — no downstream relabel, and the sliding-window forward bound is correct (no next-trial
+   tail contamination). Everything built on it — `getFaa` (the faa timecourse +
+   during/post/pre window-sets) and `fromTs` — inherits this automatically.
+5. **`%% dV/dD`** — reads `roi…tsStartTime` (required, no fallback) only to set the pre-stim
+   window's left edge. The faa path now runs entirely through
+   `getAreaDiamVelFlowFaaProxyFromTs` / `indexTs2Trial` / `getFaa`, so the timecourses,
+   during/post/pre faa and markers are all true-onset-relative with **no doIt-side
+   window-shift or relabel**.
 
 `resp` is untouched. Onsets/`dsgn` are never modified; the offset lives with the ts grid.
-(Once `vasomoTools`/`getFaa` is sunset and the faa path moves to `getFaa2`/`indexTs2Trial`,
-the doIt-side `getFaa` correction can be dropped entirely.)
+(The older onset-aligning `getFaa` — whose `getAlign` introduced the 0-based-grid offset —
+has been removed; `getFaa` now refers to the former `getFaa2`, which is grid-correct via
+`indexTs2Trial`. The doIt-side `getFaa` window-shift + relabel that bridged the transition
+is gone.)
 
 ## Verification (after fix)
 

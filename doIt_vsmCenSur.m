@@ -2386,9 +2386,7 @@ for S = 1:size(subList,1)
 
             %%% Extract area, diameter, velocity flow proxies
             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
-            %%% Compute Faa
-            roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
-            %%% ts-based windowed proxies (dX/X & dQ/Q on the faa grid) + faa2 (see getAreaDiamVelFlowFaaProxyFromTs)
+            %%% ts-based windowed proxies (dX/X & dQ/Q) + faa (getFaa via indexTs2Trial; sliding timecourse)
             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowFaaProxyFromTs(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
 
         end
@@ -2434,39 +2432,22 @@ for S = 1:size(subList,1)
 end
 
 
-% faa pre-, during- and post-stim windows, in TRUE onset-relative time points
-
-% dtTs = mean(rCond{1}.vfMRI_dflt_none.task_50sPrd5sDur.tr);
-% iStartStim = 0;          iEndStim = mean(dsgn.ondurList)./dtTs-1;
-% iStartPost = iEndStim+1; iEndPost = Inf;
-
+% faa pre-, during- and post-stim windows, in TRUE onset-relative time points. indexTs2Trial
+% builds its grid at tsStartTime (onset marker at the true onset), so the windows apply as-is.
+% iStartStim/iEndStim/iStartPost/iEndPost are set at the top of the section (configurable);
+% only the data-bound pre-stim window is derived here.
 % pre-stim window: from the first ts frame (true onset-relative time of the run start,
 % = -(onset - tsStartTime), the left edge of the faa timecourse) up to just before onset.
 iStartPre  = round(-(dsgn.onsetList(1)-tsStartTime)./dtTs); iEndPre = -1;
-% getFaa's getAlign places the onset marker at dsgn.onsetList on a 0-based ts grid, i.e. nDS
-% frames LATE (the dummy-removed ts grid actually starts at tsStartTime). Shift the windows by
-% -nDS so they still select the intended true-onset-relative periods relative to that marker.
-nDS = round(tsStartTime./dtTs);
-winStim = [iStartStim iEndStim] - nDS;
-winPost = [iStartPost iEndPost] - nDS;   % Inf-nDS stays Inf (capped at the inter-onset bound in getFaa)
-winPre  = [iStartPre  iEndPre]  - nDS;
-vessel  = getFaa(vessel,[],winStim); % append during-stim faa to faa.res
-vessel  = getFaa(vessel,[],winPost); % append post-stim  faa to faa.res
-vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
-
-% account for the ts dummy-offset for the getFaa path ONLY: getFaa's getAlign builds its grid
-% on a 0-based ts grid (marker nDS frames late), so its onset-relative times are early by
-% tsStartTime -- shift faa.res to true-onset time so the faa timecourse/markers align with the
-% resp grid. (fromTs/faa2 come from indexTs2Trial, which now builds the grid at tsStartTime, so
-% they are already true-onset-relative -- do NOT shift them. resp times are untouched.)
-% See dXoX_resp_vs_ts_timeshift.md.
-for v = 1:numel(vessel)
-    for k = 1:numel(vessel(v).faa.res)
-        vessel(v).faa.res(k).t      = vessel(v).faa.res(k).t      + tsStartTime;
-        vessel(v).faa.res(k).tStart = vessel(v).faa.res(k).tStart + tsStartTime;
-        vessel(v).faa.res(k).tEnd   = vessel(v).faa.res(k).tEnd   + tsStartTime;
-    end
-end
+winStim = [iStartStim iEndStim];
+winPost = [iStartPost iEndPost];
+winPre  = [iStartPre  iEndPre];
+% append the during/post/pre window-sets to vessel.trial (the timecourse set was built in the
+% proxy loop), then (re)compute faa for all of them on the true-onset grid.
+vessel = indexTs2Trial(vessel,[],winStim); % during-stim window-set -> trial.res
+vessel = indexTs2Trial(vessel,[],winPost); % post-stim  window-set
+vessel = indexTs2Trial(vessel,[],winPre);  % pre-stim   window-set
+vessel = getFaa(vessel);                   % faa per window-set (timecourse + during/post/pre)
 
 
 
@@ -2475,7 +2456,6 @@ ax1 = {}; ax2 = {}; ax4 = {}; ax5 = {}; axPre = {}; axQ = {};
 dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
 TTc = {}; FFc = {}; IItc = {}; IIstim = {}; IIpost = {};    % faa timecourse + selected green timecourse & its during/post-window averages
 fTSt = {}; fDoDc = {}; fVoVc = {}; fIItc = {};              % ts-based windowed dD/D, dV/V & selected green timecourse (faa grid; showTs)
-fFAA2t = {}; fFAA2c = {};                                  % faa from getFaa2 (via indexTs2Trial) for the dotted faa-panel overlay (showTs)
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
 XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/D at dV/V=0)
@@ -2548,20 +2528,17 @@ for v = 1:length(vessel)
     FFpost{v,1} = res(kPost).ts;
 
     % ts-based windowed timecourses on the faa grid (for the dotted showTs overlays).
-    % dD/D & dV/V from fromTs; the green timecourse is dQ/Q (isQ) or the faa2 fit
+    % dD/D & dV/V from fromTs; the green timecourse is dQ/Q (isQ) or the faa fit
     % intercept (X/Y), matching intType.
     fTSt{v,1}  = vessel(v).fromTs.t;
     fDoDc{v,1} = vessel(v).fromTs.DoD.mean;
     fVoVc{v,1} = vessel(v).fromTs.VoV.mean;
-    kTc2 = find(arrayfun(@(x) isscalar(x.dN), vessel(v).faa2.res),1,'last');  % faa2 timecourse window set
+    kTc2 = find(arrayfun(@(x) isscalar(x.dN), vessel(v).faa.res),1,'last');  % faa timecourse window set
     if isQ
         if qExact; fIItc{v,1} = vessel(v).fromTs.QoQe.mean; else; fIItc{v,1} = vessel(v).fromTs.QoQa.mean; end
-    elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa2.res(kTc2).yint;
-    else;                        fIItc{v,1} = vessel(v).faa2.res(kTc2).xint;
+    elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa.res(kTc2).yint;
+    else;                        fIItc{v,1} = vessel(v).faa.res(kTc2).xint;
     end
-    % faa from getFaa2 (indexTs2Trial source grid, already true-onset) for the dotted overlay
-    fFAA2t{v,1} = vessel(v).faa2.res(kTc2).t;
-    fFAA2c{v,1} = vessel(v).faa2.res(kTc2).ts;
 
     % scatter-fit intercepts (variables of interest, parallel to faa)
     YIall{v,1}  = vessel(v).faa.allYint; XIall{v,1}  = vessel(v).faa.allXint;
@@ -2594,7 +2571,6 @@ for v = 1:length(vessel)
     % faa timecourse (single axis; bottom-left). The green dQ/Q timecourse has its own panel.
     ax2{end+1} = nexttile(7); hold on
     hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
-    if showTs; plot(fFAA2t{v,1},fFAA2c{v,1},'w:'); end   % faa from getFaa2 (ts source grid), dotted -- match check vs getFaa
     dtTs = vessel(v).faa.align.dt; dNtc = res(kTc).dN;
     winLbl = [num2str((dNtc*2+1)*dtTs,3) '-sec sliding window'];   % window annotation (folded into ylabel; was a title)
     ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
@@ -2621,7 +2597,7 @@ for v = 1:length(vessel)
     axQ{end+1} = nexttile(4); hold on
     if isQ; plot(t,dQoQ,'-','Color',intCol);
     else;   plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
-    if showTs; plot(fTSt{v,1},fIItc{v,1},':','Color',intCol); end   % ts-based (windowed, faa-grid) dotted overlay
+    if showTs && isQ; plot(fTSt{v,1},fIItc{v,1},':','Color',intCol); end   % ts dQ/Q dotted vs resp solid (for X/Y the intercept is already ts-based -> no overlay)
     if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
     xlabel('post stim onset time (s)')
     grid on; axis square; xlim(ax1{end}.XLim)
@@ -2680,7 +2656,6 @@ TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});   IItc = cat(1,IItc{:});
 IIstim = cat(1,IIstim{:}); IIpost = cat(1,IIpost{:});   % per-vessel during/post green-window averages
 RTt    = TT(1,:); if isQ; RTt = t(1,:); end   % right-axis timecourse grid (faa grid, or response grid for dQ/Q)
 fTSg   = fTSt{1}; fDoD = cat(1,fDoDc{:}); fVoV = cat(1,fVoVc{:}); fIIm = cat(1,fIItc{:});  % ts-based windowed (faa grid)
-fFAA2g = fFAA2t{1}; fFAA2 = cat(1,fFAA2c{:});   % faa from getFaa2 (for the dotted faa-panel overlay)
 FFall  = cat(1,FFall{:});
 FFpre  = cat(1,FFpre{:});
 FFstim = cat(1,FFstim{:});
@@ -2758,7 +2733,6 @@ ax22 = nexttile(7); hold on   % faa timecourse (single axis): bottom-left
 hP1 = shplot(TT(1,:),mean(FF,1),std(FF,[],1)./sqrt(size(FF,1)));
 delete([hP1.upper hP1.lower]);
 hP1.line.Color = 'w'; hP1.patch.FaceColor = 'w'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
-if showTs; plot(fFAA2g,mean(fFAA2,1),'w:'); end   % faa from getFaa2 (ts source grid) mean, dotted -- match check vs getFaa
 ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
 grid on;
 yLim = ylim;
@@ -2814,7 +2788,7 @@ axQs = nexttile(4); hold on
 xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
 patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
 plot(xx,ym,'-','Color',intCol);
-if showTs; plot(fTSg,mean(fIIm,1),':','Color',intCol); end   % ts-based (windowed, faa-grid) green mean, dotted
+if showTs && isQ; plot(fTSg,mean(fIIm,1),':','Color',intCol); end   % ts dQ/Q dotted vs resp solid (X/Y intercept already ts-based -> no overlay)
 if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
 xlabel('post stim onset time (s)')
 grid on; axis square; xlim(ax11.XLim)

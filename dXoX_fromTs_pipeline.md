@@ -27,27 +27,29 @@ indexTs2Trial             design + dN -> onset-aligned grid + per-window pooled 
         |
 getAreaDiamVelFlowFaaProxyFromTs   window the ts proxies -> per-window mean (+ SEM) on the faa grid
         |
-getFaa2                   faa per window from the pooled dV/V-vs-dD/D slope (same windows)
+getFaa                    faa per window from the pooled dV/V-vs-dD/D slope (same windows)
 ```
 
-- **`indexTs2Trial(vessel, rCond, dN)`** — the indexing core extracted from `getFaa`
-  (`getAlign` + `getIdx`), made reusable and proxy-agnostic. Builds/reuses the
-  onset-aligned grid and returns, per window, the pooled `[run × time]` column
-  indices (`winCols`) and their onset-relative times. Stored in `vessel.trial`
-  (`.align`, `.res(k).{dN,winCols,winTT,t,tStart,tEnd}`). `getFaa.m` is left
-  untouched, so the two copies of the indexing logic must be kept in sync by hand.
+- **`indexTs2Trial(vessel, rCond, dN)`** — the onset-indexing core. Builds (at
+  `tsStartTime`) / reuses the onset-aligned grid and returns, per window, the pooled
+  `[run × time]` column indices (`winCols`) and their onset-relative times. Stored in
+  `vessel.trial` (`.align`, `.res(k).{dN,winCols,winTT,t,tStart,tEnd}`). (Originally
+  extracted from the older onset-aligning `getFaa`, which has since been deleted — this
+  is now the single source of the indexing.)
 
 - **`getAreaDiamVelFlowFaaProxyFromTs(vessel, rCond, dN)`** — windows the raw-ts
   proxies. Each window value is the **mean over its pooled `(run × column)` points**;
   the **SEM over that same pool** is stored alongside as the per-window error. Output
   in `vessel.fromTs`: `.t` (the faa grid) and `.<name>.mean / .sem` for `<name>` in
   `Area,Vel,Diam` (raw) and `AoA,VoV,DoD,QoQe,QoQa` (dX/X & dQ/Q). Also calls
-  `getFaa2`.
+  `getFaa`.
 
-- **`getFaa2(vessel)`** — faa per window from the `poly1` slope of pooled `dV/V` vs
-  `dD/D` over the `indexTs2Trial` windows. Output `vessel.faa2`, mirroring
-  `vessel.faa`. **Reproduces `getFaa` exactly** (validated: `max|faa2 − faa| = 0`
-  across all vessels, `faa2.all == faa.all`).
+- **`getFaa(vessel)`** — faa per window from the `poly1` slope of pooled `dV/V` vs
+  `dD/D` over the `indexTs2Trial` windows. Output `vessel.faa`
+  (`.all/.allYint/.allXint`, `.align`, `.res(k).{dN,ts,yint,xint,t,tStart,tEnd}`).
+  Formerly `getFaa2`; it replaced the older onset-aligning `getFaa` (validated to
+  match it exactly before that one was removed) and, via `indexTs2Trial`, sits on the
+  `tsStartTime`-correct grid.
 
 ## Baseline & pooling (why this matches faa)
 
