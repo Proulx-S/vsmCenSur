@@ -162,6 +162,25 @@ disp('---------')
 %         end
 %     end
 % end
+% ts time-grid offset: the preprocessed timeseries has its first nDummy frames removed
+% (nFrameOrig-nFrame), so its first sample sits at tsStartTime = (nFrameOrig-nFrame)*tr in the
+% full (with-dummy) acquisition timeline. dsgn.onsetList is in that full-ts time, so any
+% onset-relative ts indexing (getFaa/indexTs2Trial) must account for tsStartTime. Track it on rCond.
+for S = 1:length(rCond)
+    acqFlds = fieldnames(rCond{S});
+    for A = 1:numel(acqFlds)
+        if ~isstruct(rCond{S}.(acqFlds{A})); continue; end
+        tkFlds = fieldnames(rCond{S}.(acqFlds{A}));
+        for T = 1:numel(tkFlds)
+            rc = rCond{S}.(acqFlds{A}).(tkFlds{T});
+            if isempty(rc) || ~isa(rc,'runCond');                continue; end
+            if isempty(rc.nFrameOrig) || isempty(rc.nFrame) || isempty(rc.tr); continue; end
+            nRem = mode(double(rc.nFrameOrig(:)) - double(rc.nFrame(:)));   % dummy frames removed from the front
+            rCond{S}.(acqFlds{A}).(tkFlds{T}).tsStartTime = nRem * mean(double(rc.tr(:)));
+        end
+    end
+end
+
 clear index
 %% %%%%%%%%%%%%%%%%%%%%%%
 
@@ -534,6 +553,7 @@ for S = 1:size(subList,1)%:size(subList,1)
             cropSz = 10;
             [roi{S}.(acq).(task).vessel,roi{S}.(acq).(task).vesselRegion] = getVesselRoi2(label,imField,im,[cropSz 0]);
             [roi{S}.(acq).(task).vessel.coefAdjFlag] = deal(coefAdjFlag);
+            roi{S}.(acq).(task).tsStartTime = rCond{S}.(acq).(task).tsStartTime;  % ts dummy-offset, carried from rCond (see Load section)
             for i = 1:length(roi{S}.(acq).(task).vessel)
                 roi{S}.(acq).(task).vessel(i).im.resp.dt = rCond{S}.(acq).(task).volResp.mag.respCat.param.trDecon;
             end
@@ -711,7 +731,8 @@ end
 % K;
 % filename = ['results20250508_K' strjoin(cellstr(num2str(K(2:3)')),'-') '_winSz' num2str(winSz) 'tPts.mat'];
 % filename = fullfile(pwd,'workScript_20260116.mat');
-filename = fullfile(pwd,'workScript_20260606.mat');
+% filename = fullfile(pwd,'workScript_20260606.mat');
+filename = fullfile(pwd,'workScript_20260609.mat');
 disp(['saving ' filename])
 save(filename,'-v7.3')
 else
@@ -723,7 +744,8 @@ else
 % filename = 'results20250508_K4-5_winSz28tPts.mat';
 % filename = fullfile(pwd,'workScript_tmp2.mat');
 % filename = fullfile(pwd,'workScript_20260116.mat');
-filename = fullfile(pwd,'workScript_20260606.mat');
+% filename = fullfile(pwd,'workScript_20260606.mat');
+filename = fullfile(pwd,'workScript_20260609.mat');
 disp(['loading ' filename])
 load(filename)
 end
@@ -2330,13 +2352,24 @@ end
 
 
 
+
+
+
 printIt = 1;   % figure export level: 0:none  1:png  2:png+fig  3:png+fig+svg+eps
 intType = 'Qexact';   % right-axis timecourse: 'X'/'Y' fit intercept, or 'Qexact'/'Qaprx' = dQ/Q flow (exact / 1st-order)
 intCI   = [];         % intercept right-axis range: central intCI%% of pooled values; 100 = full min-max; [] = auto
 scatCI  = 100;         % scatter dD/D-dV/V half-range: central scatCI%% of pooled |values|; 100 or [] = full (max)
 showLeg = false;       % false -> drop all dV/dD legends so data fills the panels in the png; true -> keep them
 showTs  = true;        % true -> overlay the ts-based (windowed, faa-grid) dD/D, dV/V & dQ/Q as dotted lines on the resp-based timecourses
-dN      = 1;
+dN      = 0;
+acq = 'vfMRI_dflt_none'; task = 'task_50sPrd5sDur';
+dsgn = rCond{1}.(acq).(task).dsgn;
+dtTs = mean(rCond{1}.(acq).(task).tr);
+iStartStim = 0; % here 0 is the index of the ts frame that starts at stimulus onset
+iEndStim   = iStartStim + round(mean(dsgn.ondurList)./dtTs-1)-1; % dsgn.ondurList is in real-valued (non-discretized) time, so -1 to get the frame that lasts until the stimulus offset time, and another -1 for the 0-index convention here
+iStartStim = iStartStim+2; iEndStim = iEndStim+2; % +2 for physilogical delay
+iStartPost = 24; % end of post-stim under/overshoot
+iEndPost   = Inf;
 %%%%%%%%
 %% dV/dD
 %%%%%%%%
@@ -2382,31 +2415,58 @@ vessel = cat(1,vessel{:});
 
 
 % design (onset list / stim duration) for this acq/task
-dsgn = [];
+dsgn = []; tsStartTime = [];
 for S = 1:size(subList,1)
     if isfield(roi{S},acq) && isfield(roi{S}.(acq),task)
-        dsgn = rCond{S}.(acq).(task).dsgn; break
+        dsgn = rCond{S}.(acq).(task).dsgn;
+        % ts dummy-offset (s): time of the first preprocessed (dummy-removed) ts frame relative
+        % to the full-ts 0s start. Set in the "Load preprocessed data" and "Get ROI data"
+        % sections; required here (no fallback -- a stale checkpoint must fail loudly).
+        if ~isfield(roi{S}.(acq).(task),'tsStartTime') || isempty(roi{S}.(acq).(task).tsStartTime)
+            error('dVdD:noTsStartTime', ['roi{%d}.%s.%s.tsStartTime is missing/empty. It is set in the ' ...
+                '"%% Load preprocessed data" and "%% Get ROI data" sections, which live inside the checkpoint ' ...
+                'if-block -- a workScript_*.mat saved before this field existed does not carry it. ' ...
+                'Regenerate the checkpoint so those sections run, then reload.'], S, acq, task);
+        end
+        tsStartTime = roi{S}.(acq).(task).tsStartTime;
+        break
     end
 end
 
 
-% faa pre-, during- and post-stim windows (time points on the ts grid, rel. to onset)
-dtTs = mean(rCond{1}.vfMRI_dflt_none.task_50sPrd5sDur.tr);
-iStartStim = 0;          iEndStim = mean(dsgn.ondurList)./dtTs-1;
-iStartPost = iEndStim+1; iEndPost = Inf;
-% pre-stim window: from the first onset-relative time point of the run (the
-% left edge of the faa timecourse / top-middle panel, set by the dN=0 call at
-% getFaa(...,0) above) up to the point just before onset. round(-onset/dt)
-% reproduces align.idxTrialOnset(1,1) used as the timecourse's first delay.
-iStartPre  = round(-dsgn.onsetList(1)./dtTs); iEndPre = -1;
-% iStartStim = 0; iEndStim = 7;
-% iStartPost = 8; iEndPost = Inf;
-winStim = [iStartStim iEndStim];
-winPost = [iStartPost iEndPost];
-winPre  = [iStartPre  iEndPre];
+% faa pre-, during- and post-stim windows, in TRUE onset-relative time points
+
+% dtTs = mean(rCond{1}.vfMRI_dflt_none.task_50sPrd5sDur.tr);
+% iStartStim = 0;          iEndStim = mean(dsgn.ondurList)./dtTs-1;
+% iStartPost = iEndStim+1; iEndPost = Inf;
+
+% pre-stim window: from the first ts frame (true onset-relative time of the run start,
+% = -(onset - tsStartTime), the left edge of the faa timecourse) up to just before onset.
+iStartPre  = round(-(dsgn.onsetList(1)-tsStartTime)./dtTs); iEndPre = -1;
+% getFaa's getAlign places the onset marker at dsgn.onsetList on a 0-based ts grid, i.e. nDS
+% frames LATE (the dummy-removed ts grid actually starts at tsStartTime). Shift the windows by
+% -nDS so they still select the intended true-onset-relative periods relative to that marker.
+nDS = round(tsStartTime./dtTs);
+winStim = [iStartStim iEndStim] - nDS;
+winPost = [iStartPost iEndPost] - nDS;   % Inf-nDS stays Inf (capped at the inter-onset bound in getFaa)
+winPre  = [iStartPre  iEndPre]  - nDS;
 vessel  = getFaa(vessel,[],winStim); % append during-stim faa to faa.res
 vessel  = getFaa(vessel,[],winPost); % append post-stim  faa to faa.res
 vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
+
+% account for the ts dummy-offset for the getFaa path ONLY: getFaa's getAlign builds its grid
+% on a 0-based ts grid (marker nDS frames late), so its onset-relative times are early by
+% tsStartTime -- shift faa.res to true-onset time so the faa timecourse/markers align with the
+% resp grid. (fromTs/faa2 come from indexTs2Trial, which now builds the grid at tsStartTime, so
+% they are already true-onset-relative -- do NOT shift them. resp times are untouched.)
+% See dXoX_resp_vs_ts_timeshift.md.
+for v = 1:numel(vessel)
+    for k = 1:numel(vessel(v).faa.res)
+        vessel(v).faa.res(k).t      = vessel(v).faa.res(k).t      + tsStartTime;
+        vessel(v).faa.res(k).tStart = vessel(v).faa.res(k).tStart + tsStartTime;
+        vessel(v).faa.res(k).tEnd   = vessel(v).faa.res(k).tEnd   + tsStartTime;
+    end
+end
 
 
 
@@ -2415,6 +2475,7 @@ ax1 = {}; ax2 = {}; ax4 = {}; ax5 = {}; axPre = {}; axQ = {};
 dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
 TTc = {}; FFc = {}; IItc = {}; IIstim = {}; IIpost = {};    % faa timecourse + selected green timecourse & its during/post-window averages
 fTSt = {}; fDoDc = {}; fVoVc = {}; fIItc = {};              % ts-based windowed dD/D, dV/V & selected green timecourse (faa grid; showTs)
+fFAA2t = {}; fFAA2c = {};                                  % faa from getFaa2 (via indexTs2Trial) for the dotted faa-panel overlay (showTs)
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
 XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/D at dV/V=0)
@@ -2498,6 +2559,9 @@ for v = 1:length(vessel)
     elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa2.res(kTc2).yint;
     else;                        fIItc{v,1} = vessel(v).faa2.res(kTc2).xint;
     end
+    % faa from getFaa2 (indexTs2Trial source grid, already true-onset) for the dotted overlay
+    fFAA2t{v,1} = vessel(v).faa2.res(kTc2).t;
+    fFAA2c{v,1} = vessel(v).faa2.res(kTc2).ts;
 
     % scatter-fit intercepts (variables of interest, parallel to faa)
     YIall{v,1}  = vessel(v).faa.allYint; XIall{v,1}  = vessel(v).faa.allXint;
@@ -2530,6 +2594,7 @@ for v = 1:length(vessel)
     % faa timecourse (single axis; bottom-left). The green dQ/Q timecourse has its own panel.
     ax2{end+1} = nexttile(7); hold on
     hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
+    if showTs; plot(fFAA2t{v,1},fFAA2c{v,1},'w:'); end   % faa from getFaa2 (ts source grid), dotted -- match check vs getFaa
     dtTs = vessel(v).faa.align.dt; dNtc = res(kTc).dN;
     winLbl = [num2str((dNtc*2+1)*dtTs,3) '-sec sliding window'];   % window annotation (folded into ylabel; was a title)
     ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
@@ -2615,6 +2680,7 @@ TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});   IItc = cat(1,IItc{:});
 IIstim = cat(1,IIstim{:}); IIpost = cat(1,IIpost{:});   % per-vessel during/post green-window averages
 RTt    = TT(1,:); if isQ; RTt = t(1,:); end   % right-axis timecourse grid (faa grid, or response grid for dQ/Q)
 fTSg   = fTSt{1}; fDoD = cat(1,fDoDc{:}); fVoV = cat(1,fVoVc{:}); fIIm = cat(1,fIItc{:});  % ts-based windowed (faa grid)
+fFAA2g = fFAA2t{1}; fFAA2 = cat(1,fFAA2c{:});   % faa from getFaa2 (for the dotted faa-panel overlay)
 FFall  = cat(1,FFall{:});
 FFpre  = cat(1,FFpre{:});
 FFstim = cat(1,FFstim{:});
@@ -2692,6 +2758,7 @@ ax22 = nexttile(7); hold on   % faa timecourse (single axis): bottom-left
 hP1 = shplot(TT(1,:),mean(FF,1),std(FF,[],1)./sqrt(size(FF,1)));
 delete([hP1.upper hP1.lower]);
 hP1.line.Color = 'w'; hP1.patch.FaceColor = 'w'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
+if showTs; plot(fFAA2g,mean(fFAA2,1),'w:'); end   % faa from getFaa2 (ts source grid) mean, dotted -- match check vs getFaa
 ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
 grid on;
 yLim = ylim;
@@ -2760,25 +2827,28 @@ hB.MarkerFaceColor = hB.MarkerEdgeColor;
 hB = errorbar(mean(tPost),mean(IIpost),std(IIpost)./sqrt(length(IIpost)),std(IIpost)./sqrt(length(IIpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
 hB.MarkerFaceColor = hB.MarkerEdgeColor;
 
-%%% Pre-stim-normalized green response timecourse (dQ/Q or intercept) -- mid-middle.
-%%% NB dQ/Q is already baseline-relative (pre value = 0), so for intType='Q*' this equals the raw panel.
-axQsn = nexttile(5); hold on
-IItcn = IItc - IIpre;   % green timecourse - per-vessel pre-stim value
-xx = RTt; ym = mean(IItcn,1); ye = std(IItcn,[],1)./sqrt(size(IItcn,1));
-patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
-plot(xx,ym,'-','Color',intCol);
-if isQ; ylabel(intPreLbl); else; ylabel([intPreLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
-xlabel('post stim onset time (s)')
-grid on; axis square; xlim(ax11.XLim)
-if ~isempty(intYLimN); ylim(intYLimN); end
-yLim = ylim;
-patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
-% during/post markers (pre-stim-normalized green-window averages, per vessel)
-dIIstim = IIstim - IIpre; dIIpost = IIpost - IIpre;
-hB = errorbar(mean(tStim),mean(dIIstim),std(dIIstim)./sqrt(length(dIIstim)),std(dIIstim)./sqrt(length(dIIstim)),range(tStim)/2,range(tStim)/2,'mo','CapSize',0);
-hB.MarkerFaceColor = hB.MarkerEdgeColor;
-hB = errorbar(mean(tPost),mean(dIIpost),std(dIIpost)./sqrt(length(dIIpost)),std(dIIpost)./sqrt(length(dIIpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
-hB.MarkerFaceColor = hB.MarkerEdgeColor;
+%%% Pre-stim-normalized green response timecourse -- mid-middle. Only meaningful for the
+%%% fit-intercept variables (X/Y), which have a non-trivial pre-stim value; dQ/Q is already
+%%% baseline-relative (pre value = 0), so its normalized panel duplicates the raw one -> omitted.
+if ~isQ
+    axQsn = nexttile(5); hold on
+    IItcn = IItc - IIpre;   % green timecourse - per-vessel pre-stim value
+    xx = RTt; ym = mean(IItcn,1); ye = std(IItcn,[],1)./sqrt(size(IItcn,1));
+    patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
+    plot(xx,ym,'-','Color',intCol);
+    ylabel([intPreLbl ' (' winLbl ')'])
+    xlabel('post stim onset time (s)')
+    grid on; axis square; xlim(ax11.XLim)
+    if ~isempty(intYLimN); ylim(intYLimN); end
+    yLim = ylim;
+    patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+    % during/post markers (pre-stim-normalized green-window averages, per vessel)
+    dIIstim = IIstim - IIpre; dIIpost = IIpost - IIpre;
+    hB = errorbar(mean(tStim),mean(dIIstim),std(dIIstim)./sqrt(length(dIIstim)),std(dIIstim)./sqrt(length(dIIstim)),range(tStim)/2,range(tStim)/2,'mo','CapSize',0);
+    hB.MarkerFaceColor = hB.MarkerEdgeColor;
+    hB = errorbar(mean(tPost),mean(dIIpost),std(dIIpost)./sqrt(length(dIIpost)),std(dIIpost)./sqrt(length(dIIpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
+    hB.MarkerFaceColor = hB.MarkerEdgeColor;
+end
 
 %%% dQ/Q (green variable) during vs. post categorical summary -- mid-right (to the right of
 %%% the two dQ/Q panels). NB no 'all data' (there is no pooled all-data fit for dQ/Q) and no
