@@ -56,7 +56,10 @@ addpath(genpath(fullfile(toolDir,tool)))
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
 
-tool = 'vfMRItools'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = '';
+tool = 'util'; repoURL = 'https://github.com/Proulx-S/util'; subTool = ''; branch = '';
+gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
+
+tool = 'vfMRItools'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = 'dev-tsVSresp';
 gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 
 tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool = 'external/freesurfer'; branch = '';
@@ -2332,6 +2335,7 @@ intType = 'Qexact';   % right-axis timecourse: 'X'/'Y' fit intercept, or 'Qexact
 intCI   = [];         % intercept right-axis range: central intCI%% of pooled values; 100 = full min-max; [] = auto
 scatCI  = 100;         % scatter dD/D-dV/V half-range: central scatCI%% of pooled |values|; 100 or [] = full (max)
 showLeg = false;       % false -> drop all dV/dD legends so data fills the panels in the png; true -> keep them
+showTs  = true;        % true -> overlay the ts-based (windowed, faa-grid) dD/D, dV/V & dQ/Q as dotted lines on the resp-based timecourses
 dN      = 1;
 %%%%%%%%
 %% dV/dD
@@ -2351,6 +2355,8 @@ for S = 1:size(subList,1)
             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
             %%% Compute Faa
             roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
+            %%% ts-based windowed proxies (dX/X & dQ/Q on the faa grid) + faa2 (see getAreaDiamVelFlowFaaProxyFromTs)
+            roi{S}.(acq).(task).vessel = getAreaDiamVelFlowFaaProxyFromTs(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
 
         end
     end
@@ -2408,6 +2414,7 @@ vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
 ax1 = {}; ax2 = {}; ax4 = {}; ax5 = {}; axPre = {}; axQ = {};
 dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
 TTc = {}; FFc = {}; IItc = {}; IIstim = {}; IIpost = {};    % faa timecourse + selected green timecourse & its during/post-window averages
+fTSt = {}; fDoDc = {}; fVoVc = {}; fIItc = {};              % ts-based windowed dD/D, dV/V & selected green timecourse (faa grid; showTs)
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
 XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/D at dV/V=0)
@@ -2479,6 +2486,19 @@ for v = 1:length(vessel)
     FFstim{v,1} = res(kStim).ts;
     FFpost{v,1} = res(kPost).ts;
 
+    % ts-based windowed timecourses on the faa grid (for the dotted showTs overlays).
+    % dD/D & dV/V from fromTs; the green timecourse is dQ/Q (isQ) or the faa2 fit
+    % intercept (X/Y), matching intType.
+    fTSt{v,1}  = vessel(v).fromTs.t;
+    fDoDc{v,1} = vessel(v).fromTs.DoD.mean;
+    fVoVc{v,1} = vessel(v).fromTs.VoV.mean;
+    kTc2 = find(arrayfun(@(x) isscalar(x.dN), vessel(v).faa2.res),1,'last');  % faa2 timecourse window set
+    if isQ
+        if qExact; fIItc{v,1} = vessel(v).fromTs.QoQe.mean; else; fIItc{v,1} = vessel(v).fromTs.QoQa.mean; end
+    elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa2.res(kTc2).yint;
+    else;                        fIItc{v,1} = vessel(v).faa2.res(kTc2).xint;
+    end
+
     % scatter-fit intercepts (variables of interest, parallel to faa)
     YIall{v,1}  = vessel(v).faa.allYint; XIall{v,1}  = vessel(v).faa.allXint;
     YIpre{v,1}  = res(kPre).yint;        XIpre{v,1}  = res(kPre).xint;
@@ -2496,6 +2516,10 @@ for v = 1:length(vessel)
     ax1{end+1} = nexttile; hold on
     hP1 = plot(t,dDoD,'c-');
     hP2 = plot(t,dVoV,'y-');
+    if showTs   % ts-based (windowed, faa-grid) dD/D & dV/V as dotted lines of matching color
+        plot(fTSt{v,1},fDoDc{v,1},'c:');
+        plot(fTSt{v,1},fVoVc{v,1},'y:');
+    end
     ylabel('dX/X'); xlabel('post stim onset time (s)')
     grid on; axis tight
     yLim = ylim; yLim = [-1 1].*max(abs(yLim)); ylim(yLim);
@@ -2532,6 +2556,7 @@ for v = 1:length(vessel)
     axQ{end+1} = nexttile(4); hold on
     if isQ; plot(t,dQoQ,'-','Color',intCol);
     else;   plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
+    if showTs; plot(fTSt{v,1},fIItc{v,1},':','Color',intCol); end   % ts-based (windowed, faa-grid) dotted overlay
     if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
     xlabel('post stim onset time (s)')
     grid on; axis square; xlim(ax1{end}.XLim)
@@ -2589,6 +2614,7 @@ dQoQe  = cat(1,dQoQec{:}); dQoQa = cat(1,dQoQac{:});   % both flow-change varian
 TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});   IItc = cat(1,IItc{:});
 IIstim = cat(1,IIstim{:}); IIpost = cat(1,IIpost{:});   % per-vessel during/post green-window averages
 RTt    = TT(1,:); if isQ; RTt = t(1,:); end   % right-axis timecourse grid (faa grid, or response grid for dQ/Q)
+fTSg   = fTSt{1}; fDoD = cat(1,fDoDc{:}); fVoV = cat(1,fVoVc{:}); fIIm = cat(1,fIItc{:});  % ts-based windowed (faa grid)
 FFall  = cat(1,FFall{:});
 FFpre  = cat(1,FFpre{:});
 FFstim = cat(1,FFstim{:});
@@ -2651,6 +2677,10 @@ hP1.line.Color = 'c'; hP1.patch.FaceColor = 'c'; hP1.patch.FaceAlpha = 0.25; hP1
 hP2 = shplot(t(1,:),mean(dVoV,1),std(dVoV,[],1)./sqrt(size(dVoV,1)));
 delete([hP2.upper hP2.lower]);
 hP2.line.Color = 'y'; hP2.patch.FaceColor = 'y'; hP2.patch.FaceAlpha = 0.25; hP2.patch.EdgeColor = 'none';
+if showTs   % ts-based (windowed, faa-grid) dD/D & dV/V means as dotted lines
+    plot(fTSg,mean(fDoD,1),'c:');
+    plot(fTSg,mean(fVoV,1),'y:');
+end
 ylabel('dX/X'); xlabel('post stim onset time (s)')
 grid on; axis tight
 yLim = ylim; yLim = [-1 1].*max(abs(yLim)); ylim(yLim);
@@ -2717,6 +2747,7 @@ axQs = nexttile(4); hold on
 xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
 patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
 plot(xx,ym,'-','Color',intCol);
+if showTs; plot(fTSg,mean(fIIm,1),':','Color',intCol); end   % ts-based (windowed, faa-grid) green mean, dotted
 if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
 xlabel('post stim onset time (s)')
 grid on; axis square; xlim(ax11.XLim)
