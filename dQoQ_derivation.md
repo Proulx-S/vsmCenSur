@@ -1,9 +1,11 @@
 # Volumetric flow change $\Delta Q/Q$
 
-Derivation of the formula used in `doIt_vsmCenSur.m` (dV/dD section):
+Derivation of the formula computed in `tools/vfMRItools/getAreaDiamVelFlowProxy.m`
+(stored as `vessel.im.<src>QoQe`/`QoQa`) and plotted by `doIt_vsmCenSur.m` (dV/dD section):
 
 ```matlab
-dQoQ = (1+dVoV).*(1+dAoA) - 1;     % volumetric flow change, Q = V*A
+QoQe = (1+VoV).*(1+AoA) - 1;     % volumetric flow change dQ/Q, exact (Q = V*A)
+QoQa = VoV + AoA;                % volumetric flow change dQ/Q, first-order approximation
 ```
 
 ## 1. Volumetric flow
@@ -80,14 +82,14 @@ For small changes the cross term is second-order and can be dropped:
 
 $$\frac{\Delta Q}{Q_0} \;\approx\; \frac{\Delta V}{V_0} + \frac{\Delta A}{A_0} .$$
 
-The code implements **both** forms, selected by the `intType` flag:
+`getAreaDiamVelFlowProxy` computes **both** forms for every vessel and stores them
+(`vessel.im.<src>QoQe` exact, `vessel.im.<src>QoQa` first-order). In `doIt_vsmCenSur.m`
+the `intType` flag chooses which one is plotted on the right axis of the faa panels
+(alongside the `'X'`/`'Y'` fit-intercept choices):
 
-- `intType = 'Qexact'` → `dQoQe = (1+dVoV).*(1+dAoA) - 1` (exact product form; the cross
-  term $\frac{\Delta V}{V_0}\frac{\Delta A}{A_0}$ is retained),
-- `intType = 'Qaprx'` → `dQoQa = dVoV + dAoA` (first-order approximation).
-
-Both are computed for every vessel; the flag chooses which one is plotted on the right
-axis of the faa panels (alongside the `'X'`/`'Y'` fit-intercept choices).
+- `intType = 'Qexact'` → exact product form (the cross term
+  $\frac{\Delta V}{V_0}\frac{\Delta A}{A_0}$ is retained),
+- `intType = 'Qaprx'` → first-order approximation.
 
 ## 4. Relation to diameter change
 
@@ -105,15 +107,21 @@ $\Delta A/A_0$ directly from the area proxy, which is equivalent to the exact fo
 
 ## 5. Code mapping
 
-| Math | Code variable | Definition |
-|------|---------------|------------|
-| $\Delta V/V_0$ | `dVoV` | `(V - V(1))./V(1)` |
-| $\Delta A/A_0$ | `dAoA` | `(A - A(1))./A(1)` |
-| $\Delta D/D_0$ | `dDoD` | `(D - D(1))./D(1)` |
-| $\Delta Q/Q_0$ | `dQoQ` | `(1+dVoV).*(1+dAoA) - 1` |
+These are all computed in `getAreaDiamVelFlowProxy.m` from the area/velocity/diameter
+proxies and stored on the vessel, one set per source field `<src>` (`resp`, `ts`):
 
-All are timecourses on the trial-averaged (deconvolved) response grid, with the first
-frame as the pre-stim baseline.
+| Math | Stored field (`.vec`) | Definition |
+|------|-----------------------|------------|
+| $\Delta A/A_0$ | `vessel.im.<src>AoA`  | `(A - A0)./A0` |
+| $\Delta V/V_0$ | `vessel.im.<src>VoV`  | `(V - V0)./V0` |
+| $\Delta D/D_0$ | `vessel.im.<src>DoD`  | `(D - D0)./D0` |
+| $\Delta Q/Q_0$ (exact)     | `vessel.im.<src>QoQe` | `(1+VoV).*(1+AoA) - 1` |
+| $\Delta Q/Q_0$ (1st-order) | `vessel.im.<src>QoQa` | `VoV + AoA` |
+
+The baseline $X_0$ depends on the source: the **first time frame** for deconvolved
+responses (`resp*`, whose first frame is the pre-stim baseline) and the **per-run
+temporal mean** for the raw timeseries (`ts`). `doIt_vsmCenSur.m` reads these fields
+(e.g. `dDoD = vessel.im.respDoD.vec`) instead of recomputing them.
 
 ## Assumptions
 

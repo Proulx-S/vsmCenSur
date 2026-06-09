@@ -18,9 +18,5 @@
 		{
 			"path": "../tools/bassReg2"
 		}
-	],
-	"settings": {
-		"MATLAB.startDebuggerAutomatically": true,
-		"MATLAB.telemetry": false
-	}
+	]
 }

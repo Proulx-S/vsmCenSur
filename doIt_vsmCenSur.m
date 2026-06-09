@@ -2331,12 +2331,12 @@ printIt = 1;   % figure export level: 0:none  1:png  2:png+fig  3:png+fig+svg+ep
 intType = 'Qexact';   % right-axis timecourse: 'X'/'Y' fit intercept, or 'Qexact'/'Qaprx' = dQ/Q flow (exact / 1st-order)
 intCI   = [];         % intercept right-axis range: central intCI%% of pooled values; 100 = full min-max; [] = auto
 scatCI  = 100;         % scatter dD/D-dV/V half-range: central scatCI%% of pooled |values|; 100 or [] = full (max)
+showLeg = false;       % false -> drop all dV/dD legends so data fills the panels in the png; true -> keep them
 dN      = 1;
 %%%%%%%%
 %% dV/dD
 %%%%%%%%
 
-%%% Extract area, diameter and velocity proxies
 for S = 1:size(subList,1)
     for A = 1:length(acqList)
         acq  = acqList{A};
@@ -2347,39 +2347,15 @@ for S = 1:size(subList,1)
             if ~strcmp(task,'task_50sPrd5sDur'); continue; end
             if ~isfield(rCond{S}.(acq),task); continue; end
 
-            roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel,{'resp','ts'},0);
-            
-
-            % % roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
-            % roi{S}.(acq).(task).vessel = getAreaDiamVelProxy(roi{S}.(acq).(task).vessel);
-            % % roi{S}.(acq).(task).vessel = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
-            % % [roi{S}.(acq).(task).vessel,fAll] = getAreaDiamVelProxyTs(roi{S}.(acq).(task).vessel);
-            % % fAll = [fAll{:}];
-            % % figure
-            % % histogram(fAll)
-        end
-    end
-end
-
-
-
-%%% Extract Faa
-for S = 1:size(subList,1)
-    for A = 1:length(acqList)
-        acq  = acqList{A};
-        if ~isfield(rCond{S},acq)          ; continue; end
-        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
-        for T = 1:length(taskList)
-            task = taskList{T};
-            if ~strcmp(task,'task_50sPrd5sDur'); continue; end
-            if ~isfield(rCond{S}.(acq),task); continue; end
-
+            %%% Extract area, diameter, velocity flow proxies
+            roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
             %%% Compute Faa
             roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
-            % roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,[],[2 6]);
+
         end
     end
 end
+
 
 
 % Extract relevant vessels
@@ -2429,9 +2405,9 @@ vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
 
 
 %%% Plot each vessel
-ax1 = {}; ax2 = {}; ax3 = {}; ax4 = {}; ax5 = {}; axPre = {};
+ax1 = {}; ax2 = {}; ax4 = {}; ax5 = {}; axPre = {}; axQ = {};
 dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
-TTc = {}; FFc = {}; IItc = {};                   % faa timecourse + selected intercept (intType) timecourse
+TTc = {}; FFc = {}; IItc = {}; IIstim = {}; IIpost = {};    % faa timecourse + selected green timecourse & its during/post-window averages
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
 XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/D at dV/V=0)
@@ -2441,7 +2417,7 @@ XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/
 vSc = [];
 for vv = 1:length(vessel)
     Vts = cat(1,vessel(vv).im.tsVel.vec{:});
-    Dts = cat(1,vessel(vv).im.tsD.vec{:});
+    Dts = cat(1,vessel(vv).im.tsDiam.vec{:});
     dV  = (Vts - mean(Vts,2,'omitnan'))./mean(Vts,2,'omitnan');
     dD  = (Dts - mean(Dts,2,'omitnan'))./mean(Dts,2,'omitnan');
     vSc = [vSc; dV(:); dD(:)];
@@ -2452,8 +2428,8 @@ intCol  = [0.30 0.85 0.40];                       % right-axis intercept timecou
 switch upper(intType)                             % select the right-axis timecourse (intType flag)
     case 'X';      intFld='xint'; intLbl='Xint (dD/D at dV/V=0)'; intPreLbl='Xint - Xint_{pre}'; intLeg='Xint';
     case 'Y';      intFld='yint'; intLbl='Yint (dV/V at dD/D=0)'; intPreLbl='Yint - Yint_{pre}'; intLeg='Yint';
-    case 'QEXACT'; intFld='';     intLbl='dQ/Q (exact)';     intPreLbl='dQ/Q (exact)';     intLeg='dQ/Q exact';
-    case 'QAPRX';  intFld='';     intLbl='dQ/Q (1st-order)'; intPreLbl='dQ/Q (1st-order)'; intLeg='dQ/Q approx';
+    case 'QEXACT'; intFld='';     intLbl='dQ/Q (exact)';     intPreLbl='dQ/Q (exact) - pre';     intLeg='dQ/Q exact';
+    case 'QAPRX';  intFld='';     intLbl='dQ/Q (1st-order)'; intPreLbl='dQ/Q (1st-order) - pre'; intLeg='dQ/Q approx';
     otherwise; error('intType must be ''X'', ''Y'', ''Qexact'' or ''Qaprx''');
 end
 isQ    = startsWith(upper(intType),'Q');  % any Q variant -> right axis shows the dQ/Q response timecourse
@@ -2465,26 +2441,22 @@ for v = 1:length(vessel)
     kPost = find(arrayfun(@(x) isequal(x.dN,winPost) ,res),1,'last');
     kPre  = find(arrayfun(@(x) isequal(x.dN,winPre)  ,res),1,'last');
 
-    % tile-1 data: trial-averaged response (deconvolved), first frame = baseline
-    A  = vessel(v).im.respArea.vec;
-    V  = vessel(v).im.respVel.vec;
-    D  = vessel(v).im.respD.vec;
-    % D  = 2.*sqrt(A./pi);
-    dDoD = (D - D(1))./D(1);
-    dVoV = (V - V(1))./V(1);
-    dAoA  = (A - A(1))./A(1);
-    dQoQe = (1+dVoV).*(1+dAoA) - 1;    % volumetric flow change dQ/Q, exact (Q = V*A)
-    dQoQa = dVoV + dAoA;               % volumetric flow change dQ/Q, first-order approximation
+    % tile-1 data: trial-averaged response dX/X & dQ/Q (folded into getAreaDiamVelFlowProxy;
+    % resp baseline = first frame)
+    dDoD  = vessel(v).im.respDoD.vec;
+    dVoV  = vessel(v).im.respVoV.vec;
+    dAoA  = vessel(v).im.respAoA.vec;
+    dQoQe = vessel(v).im.respQoQe.vec;
+    dQoQa = vessel(v).im.respQoQa.vec;
     if qExact; dQoQ = dQoQe; else; dQoQ = dQoQa; end   % the one selected for display (used when isQ)
     dt   = vessel(v).im.respArea.dt;
-    t    = linspace(0,(numel(D)-1)*dt,numel(D));
+    t    = linspace(0,(numel(dDoD)-1)*dt,numel(dDoD));
     dDoDc{v,1} = dDoD; dVoVc{v,1} = dVoV; dQoQec{v,1} = dQoQe; dQoQac{v,1} = dQoQa; tc{v,1} = t;
 
-    % tile-3 data: full ts proxies (recomputed as in getFaa)
-    Vts = cat(1,vessel(v).im.tsVel.vec{:});
-    Dts = cat(1,vessel(v).im.tsD.vec{:});
-    dVoVts = (Vts - mean(Vts,2,'omitnan'))./mean(Vts,2,'omitnan');
-    dDoDts = (Dts - mean(Dts,2,'omitnan'))./mean(Dts,2,'omitnan');
+    % tile-3 data: full ts fractional changes (folded into getAreaDiamVelFlowProxy;
+    % ts baseline = per-run temporal mean), pooled across runs
+    dVoVts = cat(1,vessel(v).im.tsVoV.vec{:});
+    dDoDts = cat(1,vessel(v).im.tsDoD.vec{:});
 
     % during/post-stim time columns: same selection as getFaa's [n1 n2] window
     % (getIdx). The mask is over (trial x time); pooling all runs at those
@@ -2516,7 +2488,7 @@ for v = 1:length(vessel)
     nRun   = size(dVoVts,1);
     nTrial = nRun.*length(dsgn.onsetList);
 
-    figs(v) = figure; ht = tiledlayout(2,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
+    figs(v) = figure; ht = tiledlayout(3,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
     % title(ht,'subjId=' + string(vessel(v).sId) + '; vesselId=' + string(vessel(v).id) + ...
             %   '; Ntrials=' + string(nTrial) + '; Nrun=' + string(nRun))
 
@@ -2531,18 +2503,15 @@ for v = 1:length(vessel)
     hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
     legend([hP1 hP2 hP3],{'dD/D','dV/V','stimulus duration'},'Location','northeast')
 
-    % faa timecourse (left axis) + Y-intercept timecourse (right axis)
-    ax2{end+1} = nexttile(4); hold on
-    yyaxis left
+    % faa timecourse (single axis; bottom-left). The green dQ/Q timecourse has its own panel.
+    ax2{end+1} = nexttile(7); hold on
     hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
-    ax2{end}.YColor = 'w';   % keep faa (left) axis white (yyaxis recolors otherwise)
-    ylabel('faa'); xlabel('post stim onset time (s)')
+    dtTs = vessel(v).faa.align.dt; dNtc = res(kTc).dN;
+    winLbl = [num2str((dNtc*2+1)*dtTs,3) '-sec sliding window'];   % window annotation (folded into ylabel; was a title)
+    ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
     ax1{end}.XLim = xlim; grid on
-    % xlim(ax1{end}.XLim); grid on
-    dtTs = vessel(v).faa.align.dt;
-    % faa pre/during/post stim, magenta error bars (same method as the summary panel):
-    % single vessel -> one scalar faa per window, so no vertical SEM; horizontal
-    % error bar spans the window.
+    % faa pre/during/post stim, magenta error bars (single vessel -> no vertical SEM;
+    % horizontal error bar spans the window).
     tPre  = [res(kPre).tStart  res(kPre).tEnd+dtTs];
     hB0 = errorbar(mean(tPre),FFpre{v,1},0,0,range(tPre)/2,range(tPre)/2,'mo','CapSize',0);
     hB0.MarkerFaceColor = hB0.MarkerEdgeColor;
@@ -2552,30 +2521,20 @@ for v = 1:length(vessel)
     tPost = [res(kPost).tStart res(kPost).tEnd];
     hB2 = errorbar(mean(tPost),FFpost{v,1},0,0,range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
     hB2.MarkerFaceColor = hB2.MarkerEdgeColor;
-    % right-axis timecourse: fit intercept (X/Y, faa grid) or dQ/Q flow (Q, response grid)
-    yyaxis right
-    if isQ; hI = plot(t,dQoQ,'-','Color',intCol);
-    else;   hI = plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
-    ax2{end}.YColor = intCol;
-    ylabel(intLbl)
-    yyaxis left   % leave left (faa) active for downstream harmonize/patch
-    dNtc = res(kTc).dN;
-    legend([hP1,hB1,hI],[num2str((dNtc*2+1)*dtTs) '-sec sliding window'],'faa pre/during/post stim',intLeg,'AutoUpdate','off','Location','northeast')
+    % during/post-stim averages of the green timecourse (dQ/Q or selected intercept) over the
+    % same time windows as the faa markers -- feeds the green-panel markers & dQ/Q categorical.
+    % dQ/Q has no pre-stim window (response grid), so only during/post are defined here.
+    gGrid = TTc{v,1}; if isQ; gGrid = t; end
+    IIstim{v,1} = mean(IItc{v,1}(gGrid>=tStim(1) & gGrid<=tStim(2)),'omitnan');
+    IIpost{v,1} = mean(IItc{v,1}(gGrid>=tPost(1) & gGrid<=tPost(2)),'omitnan');
 
-    % faa using all time points
-    ax3{end+1} = nexttile(3); hold on
-    hP1 = scatter(dDoDts(:),dVoVts(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
-    alpha(hP1,0.1); axis square
-    lim = [-1 1].*max(abs([dDoDts(:); dVoVts(:)]));
-    xlim(lim); ylim(lim); grid minor
-    xlabel('dD/D'); ylabel('dV/V')
-    ok   = ~isnan(dDoDts) & ~isnan(dVoVts);
-    fit1 = fit(dDoDts(ok),dVoVts(ok),'poly1'); % intercept + slope, as in getFaa
-    X    = [min([dDoDts(ok);0;XIall{v,1}]) max([dDoDts(ok);0;XIall{v,1}])];
-    hFit = plot(ax3{end},X,fit1(X),'r-');
-    plot(ax3{end},[0 -scatLim],[1 1].*YIall{v,1},'r--'); % Y-intercept -> dV/V axis (dV/V at dD/D=0)
-    plot(ax3{end},[1 1].*XIall{v,1},[0 -scatLim],'r--'); % X-intercept -> dD/D axis (dD/D at dV/V=0)
-    legend([hP1 hFit],'single tPts','faa = ' + string(FFall{v,1}),'Location','northeast')
+    % green response timecourse (dQ/Q, or the selected fit intercept) -- its own panel (mid-left)
+    axQ{end+1} = nexttile(4); hold on
+    if isQ; plot(t,dQoQ,'-','Color',intCol);
+    else;   plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
+    if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
+    xlabel('post stim onset time (s)')
+    grid on; axis square; xlim(ax1{end}.XLim)
 
     % faa using pre-stim time points only (same points as the faa-panel pre-stim marker)
     axPre{end+1} = nexttile(2); hold on
@@ -2584,7 +2543,7 @@ for v = 1:length(vessel)
     alpha(hP1,0.1); axis square
     lim = [-1 1].*max(abs([Xs(:); Ys(:)]));
     xlim(lim); ylim(lim); grid minor
-    xlabel('dD/D'); ylabel('dV/V'); title('pre stim')
+    xlabel('dD/D (pre stim)'); ylabel('dV/V (pre stim)')
     ok   = ~isnan(Xs) & ~isnan(Ys);
     fit1 = fit(Xs(ok),Ys(ok),'poly1'); % intercept + slope, as in getFaa
     X    = [min([Xs(ok);0;XIpre{v,1}]) max([Xs(ok);0;XIpre{v,1}])];
@@ -2600,7 +2559,7 @@ for v = 1:length(vessel)
     alpha(hP1,0.1); axis square
     lim = [-1 1].*max(abs([Xs(:); Ys(:)]));
     xlim(lim); ylim(lim); grid minor
-    xlabel('dD/D'); ylabel('dV/V'); title('during stim')
+    xlabel('dD/D (during stim)'); ylabel('dV/V (during stim)')
     ok   = ~isnan(Xs) & ~isnan(Ys);
     fit1 = fit(Xs(ok),Ys(ok),'poly1'); % intercept + slope, as in getFaa
     X    = [min([Xs(ok);0;XIstim{v,1}]) max([Xs(ok);0;XIstim{v,1}])];
@@ -2610,13 +2569,13 @@ for v = 1:length(vessel)
     legend([hP1 hFit],'during-stim tPts','faa = ' + string(FFstim{v,1}),'Location','northeast')
 
     % faa using post-stim time points only (same points as the faa-panel post-stim marker)
-    ax5{end+1} = nexttile(6); hold on
+    ax5{end+1} = nexttile(8); hold on
     Xs = dDoDts(:,colsPost); Ys = dVoVts(:,colsPost);
     hP1 = scatter(Xs(:),Ys(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
     alpha(hP1,0.1); axis square
     lim = [-1 1].*max(abs([Xs(:); Ys(:)]));
     xlim(lim); ylim(lim); grid minor
-    xlabel('dD/D'); ylabel('dV/V'); title('post stim')
+    xlabel('dD/D (post stim)'); ylabel('dV/V (post stim)')
     ok   = ~isnan(Xs) & ~isnan(Ys);
     fit1 = fit(Xs(ok),Ys(ok),'poly1'); % intercept + slope, as in getFaa
     X    = [min([Xs(ok);0;XIpost{v,1}]) max([Xs(ok);0;XIpost{v,1}])];
@@ -2628,6 +2587,7 @@ end
 dDoD   = cat(1,dDoDc{:}); dVoV = cat(1,dVoVc{:}); t = cat(1,tc{:});
 dQoQe  = cat(1,dQoQec{:}); dQoQa = cat(1,dQoQac{:});   % both flow-change variants (variables of interest)
 TT     = cat(1,TTc{:});   FF   = cat(1,FFc{:});   IItc = cat(1,IItc{:});
+IIstim = cat(1,IIstim{:}); IIpost = cat(1,IIpost{:});   % per-vessel during/post green-window averages
 RTt    = TT(1,:); if isQ; RTt = t(1,:); end   % right-axis timecourse grid (faa grid, or response grid for dQ/Q)
 FFall  = cat(1,FFall{:});
 FFpre  = cat(1,FFpre{:});
@@ -2637,12 +2597,11 @@ YIall  = cat(1,YIall{:});  XIall  = cat(1,XIall{:});
 YIpre  = cat(1,YIpre{:});  XIpre  = cat(1,XIpre{:});
 YIstim = cat(1,YIstim{:}); XIstim = cat(1,XIstim{:});
 YIpost = cat(1,YIpost{:}); XIpost = cat(1,XIpost{:});
-% pre-stim value of the selected right-axis quantity (for the normalized panel). dQ/Q is
+% pre-stim value of the green variable (for the pre-stim-normalized panel). dQ/Q is
 % already baseline-relative (no pre-stim window on the response grid), so its pre value is 0.
 if isQ; IIpre = zeros(numel(vessel),1); elseif strcmpi(intType,'Y'); IIpre = YIpre; else; IIpre = XIpre; end
-% right-axis ranges = central intCI% interval of the pooled intercept values (clips blow-ups).
-% intCI=100 -> exact [min max]; intCI=[] -> auto. Raw (IItc, used by per-vessel + ax22) and
-% pre-normalized (IItc-IIpre, used by ax44) have different spreads, so each gets its own range.
+% y-ranges for the raw (intYLim) and pre-normalized (intYLimN) green panels = central intCI%
+% interval of the pooled values (clips blow-ups). intCI=100 -> exact [min max]; intCI=[] -> auto.
 if isempty(intCI)
     intYLim = []; intYLimN = [];
 else
@@ -2652,36 +2611,37 @@ else
 end
 
 % Harmonize across vessels
-ax1 = [ax1{:}]; ax2 = [ax2{:}]; ax3 = [ax3{:}]; ax4 = [ax4{:}]; ax5 = [ax5{:}]; axPre = [axPre{:}];
+ax1 = [ax1{:}]; ax2 = [ax2{:}]; ax4 = [ax4{:}]; ax5 = [ax5{:}]; axPre = [axPre{:}]; axQ = [axQ{:}];
 yLim = get(ax1,'YLim'); yLim = [-1 1].*max(abs([yLim{:}])); set(ax1,'YLim',yLim);
-% ax2 has yyaxis: harmonize left (faa) then right (Yint) across vessels, leave left active
-for a = ax2; yyaxis(a,'left'); end
+% faa (ax2) -> common range across vessels
 yLim = get(ax2,'YLim'); yLim = cat(1,yLim{:}); yLim = [min(yLim(:,1)) max(yLim(:,2))]; set(ax2,'YLim',yLim);
-for a = ax2; yyaxis(a,'right'); end
+% green dQ/Q (or intercept) panel (axQ) -> intCI percentile range, else common range
 if ~isempty(intYLim)
-    set(ax2,'YLim',intYLim);
+    set(axQ,'YLim',intYLim);
 else
-    yLimR = get(ax2,'YLim'); yLimR = cat(1,yLimR{:}); yLimR = [min(yLimR(:,1)) max(yLimR(:,2))]; set(ax2,'YLim',yLimR);
+    yLimQ = get(axQ,'YLim'); yLimQ = cat(1,yLimQ{:}); set(axQ,'YLim',[min(yLimQ(:,1)) max(yLimQ(:,2))]);
 end
-for a = ax2; yyaxis(a,'left'); end
-set([ax3 ax4 ax5 axPre],'YLim',[-1 1].*scatLim,'XLim',[-1 1].*scatLim);
+set([ax4 ax5 axPre],'YLim',[-1 1].*scatLim,'XLim',[-1 1].*scatLim);
 % salient white x=0 / y=0 lines (more opaque + thicker than the grid)
-for axsc = [ax3 ax4 ax5 axPre]
+for axsc = [ax4 ax5 axPre]
     xline(axsc,0,'w-','LineWidth',1,'Alpha',0.7,'HandleVisibility','off');
     yline(axsc,0,'w-','LineWidth',1,'Alpha',0.7,'HandleVisibility','off');
 end
+% stim-duration patch at the bottom of each timecourse panel (dX/X, faa, dQ/Q)
 for i = 1:length(ax1)
     hP = findobj(ax1(i).Children,'Type','patch');
     yLim = ax1(i).YLim;
     hP.Vertices = [[0 1 1 0]'.*mean(dsgn.ondurList) ([1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim))'];
-    yLim = ax2(i).YLim;
-    patch(ax2(i),[0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+    for ax = [ax2(i) axQ(i)]
+        yLim = ax.YLim;
+        patch(ax,[0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+    end
 end
 
 
 
 %%% Summary across vessels
-figs(end+1) = figure; ht = tiledlayout(2,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
+figs(end+1) = figure; ht = tiledlayout(3,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
 title(ht,'summary across vessels (N=' + string(size(dDoD,1)) + ' vessels)')
 
 ax11 = nexttile(1); hold on
@@ -2698,18 +2658,15 @@ axis square
 hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
 legend([hP1.line hP2.line hP3],{'dD/D','dV/V','stimulus duration'},'Location','northeast')
 
-ax22 = nexttile(4); hold on   % faa timecourse: bottom-left, under the dX/X timecourse (ax11)
-yyaxis left
+ax22 = nexttile(7); hold on   % faa timecourse (single axis): bottom-left
 hP1 = shplot(TT(1,:),mean(FF,1),std(FF,[],1)./sqrt(size(FF,1)));
 delete([hP1.upper hP1.lower]);
 hP1.line.Color = 'w'; hP1.patch.FaceColor = 'w'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
-ax22.YColor = 'w';   % keep faa (left) axis white
-ylabel('faa'); xlabel('post stim onset time (s)')
+ylabel(['faa (' winLbl ')']); xlabel('post stim onset time (s)')
 grid on;
 yLim = ylim;
 patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
 axis square tight
-% xlim(ax11.XLim)
 ax11.XLim = xlim;
 tPre = [vessel(1).faa.res(kPre).tStart vessel(1).faa.res(kPre).tEnd+dtTs];
 hB = errorbar(mean(tPre),mean(FFpre),std(FFpre)./sqrt(length(FFpre)),std(FFpre)./sqrt(length(FFpre)),range(tPre)/2,range(tPre)/2,'mo','CapSize',0);
@@ -2720,20 +2677,8 @@ hB.MarkerFaceColor = hB.MarkerEdgeColor;
 tPost = [vessel(1).faa.res(kPost).tStart vessel(1).faa.res(kPost).tEnd];
 hB = errorbar(mean(tPost),mean(FFpost),std(FFpost)./sqrt(length(FFpost)),std(FFpost)./sqrt(length(FFpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
 hB.MarkerFaceColor = hB.MarkerEdgeColor;
-% Y-intercept summary timecourse (mean +/- SEM across vessels) on the right axis.
-% shplot uses uistack, which fails on a yyaxis secondary axis, so build the
-% shaded line manually (same look: line + 0.25-alpha band).
-yyaxis right
-xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
-patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
-hPi = plot(xx,ym,'-','Color',intCol);
-ax22.YColor = intCol;
-ylabel(intLbl)
-if ~isempty(intYLim); ylim(intYLim); end
-yyaxis left
-legend([hP1.line,hB,hPi],[num2str((dNtc*2+1)*dtTs) '-sec sliding window'],'pre/during/post stim',intLeg,'AutoUpdate','off','Location','northeast')
 
-ax33 = nexttile(3); hold on
+ax33 = nexttile(9); hold on   % faa during-vs-post categorical: bottom-right
 Y = [FFall FFpre FFstim FFpost];
 % all data -> pre stim drawn dotted ('all data' is the pooled fit, not part of
 % the pre/during/post temporal sequence); pre -> during -> post solid.
@@ -2744,19 +2689,16 @@ set(gca,'XTick',1:4,'XTickLabel',{'all data','pre stim','during stim','post stim
 ylabel('faa'); xlim([0.5 4.5])
 ax33.YGrid = 'on';
 [h,p,ci,stats] = ttest(FFstim,FFpost);
-title('faa during vs. post stim: p=' + string(p) + '; t=' + string(stats.tstat))
+fprintf('[dV/dD stats] faa during vs. post stim: p=%g; t=%g\n',p,stats.tstat)   % pushed off the panel title to terminal
 
-%%% Pre-stim-normalized faa/Yint timecourses (bottom-middle): each vessel's
-%%% timecourse minus its own pre-stim window value (FFpre/YIpre), then mean +/- SEM
-ax44  = nexttile(5); hold on
-FFn   = FF   - FFpre;     % faa  timecourse - pre-stim faa  (per-vessel, implicit expansion)
-IItcn = IItc - IIpre;     % intercept timecourse - pre-stim intercept (per-vessel, selected by intType)
-yyaxis left
+%%% Pre-stim-normalized faa timecourse (bottom-middle): each vessel's faa minus its
+%%% own pre-stim window value (FFpre), then mean +/- SEM
+ax44  = nexttile(8); hold on
+FFn   = FF - FFpre;     % faa timecourse - pre-stim faa (per-vessel, implicit expansion)
 hP1 = shplot(TT(1,:),mean(FFn,1),std(FFn,[],1)./sqrt(size(FFn,1)));
 delete([hP1.upper hP1.lower]);
 hP1.line.Color = 'w'; hP1.patch.FaceColor = 'w'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
-ax44.YColor = 'w';
-ylabel('faa - faa_{pre}'); xlabel('post stim onset time (s)')
+ylabel(['faa - faa_{pre} (' winLbl ')']); xlabel('post stim onset time (s)')
 grid on;
 yLim = ylim;
 patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
@@ -2769,16 +2711,60 @@ hB.MarkerFaceColor = hB.MarkerEdgeColor;
 dPost = FFpost - FFpre;
 hB = errorbar(mean(tPost),mean(dPost),std(dPost)./sqrt(length(dPost)),std(dPost)./sqrt(length(dPost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
 hB.MarkerFaceColor = hB.MarkerEdgeColor;
-% Yint normalized timecourse on the right axis (manual band; shplot's uistack fails on yyaxis right)
-yyaxis right
+
+%%% Green response timecourse (dQ/Q, or selected fit intercept) summary -- its own panel (mid-left)
+axQs = nexttile(4); hold on
+xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
+patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
+plot(xx,ym,'-','Color',intCol);
+if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
+xlabel('post stim onset time (s)')
+grid on; axis square; xlim(ax11.XLim)
+if ~isempty(intYLim); ylim(intYLim); end
+yLim = ylim;
+patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+% during/post markers: green-window averages, mean +/- SEM (magenta, like the faa panel)
+hB = errorbar(mean(tStim),mean(IIstim),std(IIstim)./sqrt(length(IIstim)),std(IIstim)./sqrt(length(IIstim)),range(tStim)/2,range(tStim)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+hB = errorbar(mean(tPost),mean(IIpost),std(IIpost)./sqrt(length(IIpost)),std(IIpost)./sqrt(length(IIpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+
+%%% Pre-stim-normalized green response timecourse (dQ/Q or intercept) -- mid-middle.
+%%% NB dQ/Q is already baseline-relative (pre value = 0), so for intType='Q*' this equals the raw panel.
+axQsn = nexttile(5); hold on
+IItcn = IItc - IIpre;   % green timecourse - per-vessel pre-stim value
 xx = RTt; ym = mean(IItcn,1); ye = std(IItcn,[],1)./sqrt(size(IItcn,1));
 patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
-hPi = plot(xx,ym,'-','Color',intCol);
-ax44.YColor = intCol;
-ylabel(intPreLbl)
+plot(xx,ym,'-','Color',intCol);
+if isQ; ylabel(intPreLbl); else; ylabel([intPreLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
+xlabel('post stim onset time (s)')
+grid on; axis square; xlim(ax11.XLim)
 if ~isempty(intYLimN); ylim(intYLimN); end
-yyaxis left
-legend([hP1.line,hB,hPi],[num2str((dNtc*2+1)*dtTs) '-sec sliding window'],'during/post stim',intLeg,'AutoUpdate','off','Location','northeast')
+yLim = ylim;
+patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+% during/post markers (pre-stim-normalized green-window averages, per vessel)
+dIIstim = IIstim - IIpre; dIIpost = IIpost - IIpre;
+hB = errorbar(mean(tStim),mean(dIIstim),std(dIIstim)./sqrt(length(dIIstim)),std(dIIstim)./sqrt(length(dIIstim)),range(tStim)/2,range(tStim)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+hB = errorbar(mean(tPost),mean(dIIpost),std(dIIpost)./sqrt(length(dIIpost)),std(dIIpost)./sqrt(length(dIIpost)),range(tPost)/2,range(tPost)/2,'mo','CapSize',0);
+hB.MarkerFaceColor = hB.MarkerEdgeColor;
+
+%%% dQ/Q (green variable) during vs. post categorical summary -- mid-right (to the right of
+%%% the two dQ/Q panels). NB no 'all data' (there is no pooled all-data fit for dQ/Q) and no
+%%% pre-stim period; during/post are simple averages over the corresponding time windows.
+ax33Q = nexttile(6); hold on
+YQ = [IIstim IIpost];
+plot(1:2,YQ','-','Color',intCol,'Marker','.');
+axis square
+set(gca,'XTick',1:2,'XTickLabel',{'during stim','post stim'})
+ylabel(intLbl); xlim([0.5 2.5])
+ax33Q.YGrid = 'on';
+[hq,pq,ciq,statsq] = ttest(IIstim,IIpost);
+fprintf('[dV/dD stats] %s during vs. post stim: p=%g; t=%g\n',intLeg,pq,statsq.tstat)   % pushed off the panel title to terminal
+
+
+%%% optionally drop all legends (showLeg flag) so the data fills the panels in the png
+if ~showLeg; delete(findobj(figs,'Type','legend')); end
 
 
 %%% Export figures (printIt level set before the section heading; see tools/util/printFigs.m)
