@@ -1218,7 +1218,7 @@ for S = 1:size(subList,1)
 end
 
 S=subIndList(3)
-rCond{S}.(acq).(task).bhvr.percTruePositive
+% rCond{S}.(acq).(task).bhvr.percTruePositive
 
 tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 hFol   = {}; hAol   = {}; hIol   = {};
@@ -2351,6 +2351,65 @@ end
 
 
 
+return
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Inspect response SVD
+%%%%%%%%%%%%%%%%%%%%%%%
+
+acq = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+subIndList = [];
+for S = 1:size(subList,1)
+    if ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    % vesselRun = repmat(roi{S}.(acq).(task).vessel,[1 2]);
+    % for v = 1:size(vesselRun,1)
+    %     for r = 1:size(roi{S}.(acq).(task).vessel(v).im.resp2,2)
+    %         vesselRun(v,r).im.resp.im = roi{S}.(acq).(task).vessel(v).im.resp2.im{r};
+    %     end
+    % end
+    % roi{S}.(acq).(task).vessel2 = getVesselResp(vesselRun);
+    roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+    subIndList(end+1) = S;
+end
+
+S=subIndList(1);
+
+tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
+hFol   = {}; hAol   = {}; hIol   = {};
+hFresp = {}; hAresp = {}; hTresp = {};
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'coef thresholded';
+[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'coef thresholded';
+colormap jet
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_2';
+
+
+
+
+% [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef_flat'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+% adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'coef';
+% % set(hAol{end},'CLim',[-1 1].*max(max(abs(cell2mat(get(hAol{end},'CLim'))))));
+
+% [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+% adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'svSpace_1';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_1';
+% [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_2'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+% adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1','w',1); hFol{end}.Name = 'svSpace_2';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_2',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_2';
+
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respArea',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respArea';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respVel',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respVel';
+
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respSurVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respSurVox';
+% [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
+
+%% %%%%%%%%%%%%%%%%%%%%
+
+
+
 
 
 
@@ -2370,6 +2429,7 @@ iEndStim   = iStartStim + round(mean(dsgn.ondurList)./dtTs-1)-1; % dsgn.ondurLis
 iStartStim = iStartStim+2; iEndStim = iEndStim+2; % +2 for physilogical delay
 iStartPost = 24; % end of post-stim under/overshoot
 iEndPost   = Inf;
+
 %%%%%%%%
 %% dV/dD
 %%%%%%%%
@@ -2432,6 +2492,12 @@ for S = 1:size(subList,1)
 end
 
 
+
+tmp = getVesselResp(vessel(1));
+
+tmp.svdResp.
+
+
 % faa pre-, during- and post-stim windows, in TRUE onset-relative time points. indexTs2Trial
 % builds its grid at tsStartTime (onset marker at the true onset), so the windows apply as-is.
 % iStartStim/iEndStim/iStartPost/iEndPost are set at the top of the section (configurable);
@@ -2456,6 +2522,7 @@ ax1 = {}; ax2 = {}; ax4 = {}; ax5 = {}; axPre = {}; axQ = {};
 dDoDc = {}; dVoVc = {}; dQoQec = {}; dQoQac = {}; tc = {};  % tile-1 response timecourse (+ dQ/Q exact & 1st-order)
 TTc = {}; FFc = {}; IItc = {}; IIstim = {}; IIpost = {};    % faa timecourse + selected green timecourse & its during/post-window averages
 fTSt = {}; fDoDc = {}; fVoVc = {}; fIItc = {};              % ts-based windowed dD/D, dV/V & selected green timecourse (faa grid; showTs)
+fDoDsem = {}; fVoVsem = {}; fIIsem = {};                    % ts-based across-trial SEM (single-vessel shaded bands)
 FFall = {}; FFpre = {}; FFstim = {}; FFpost = {};% faa scalars
 YIall = {}; YIpre = {}; YIstim = {}; YIpost = {};% scatter fit y-intercepts (dV/V at dD/D=0)
 XIall = {}; XIpre = {}; XIstim = {}; XIpost = {};% scatter fit x-intercepts (dD/D at dV/V=0)
@@ -2531,13 +2598,14 @@ for v = 1:length(vessel)
     % dD/D & dV/V from fromTs; the green timecourse is dQ/Q (isQ) or the faa fit
     % intercept (X/Y), matching intType.
     fTSt{v,1}  = vessel(v).fromTs.t;
-    fDoDc{v,1} = vessel(v).fromTs.DoD.mean;
-    fVoVc{v,1} = vessel(v).fromTs.VoV.mean;
+    fDoDc{v,1} = vessel(v).fromTs.DoD.mean;   fDoDsem{v,1} = vessel(v).fromTs.DoD.sem;
+    fVoVc{v,1} = vessel(v).fromTs.VoV.mean;   fVoVsem{v,1} = vessel(v).fromTs.VoV.sem;
     kTc2 = find(arrayfun(@(x) isscalar(x.dN), vessel(v).faa.res),1,'last');  % faa timecourse window set
     if isQ
-        if qExact; fIItc{v,1} = vessel(v).fromTs.QoQe.mean; else; fIItc{v,1} = vessel(v).fromTs.QoQa.mean; end
-    elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa.res(kTc2).yint;
-    else;                        fIItc{v,1} = vessel(v).faa.res(kTc2).xint;
+        if qExact; fIItc{v,1} = vessel(v).fromTs.QoQe.mean; fIIsem{v,1} = vessel(v).fromTs.QoQe.sem;
+        else;      fIItc{v,1} = vessel(v).fromTs.QoQa.mean; fIIsem{v,1} = vessel(v).fromTs.QoQa.sem; end
+    elseif strcmpi(intType,'Y'); fIItc{v,1} = vessel(v).faa.res(kTc2).yint; fIIsem{v,1} = zeros(size(fIItc{v,1}));
+    else;                        fIItc{v,1} = vessel(v).faa.res(kTc2).xint; fIIsem{v,1} = zeros(size(fIItc{v,1}));
     end
 
     % scatter-fit intercepts (variables of interest, parallel to faa)
@@ -2555,17 +2623,21 @@ for v = 1:length(vessel)
 
     % dD/D and dV/V timecourse
     ax1{end+1} = nexttile; hold on
-    hP1 = plot(t,dDoD,'c-');
-    hP2 = plot(t,dVoV,'y-');
-    if showTs   % ts-based (windowed, faa-grid) dD/D & dV/V as dotted lines of matching color
-        plot(fTSt{v,1},fDoDc{v,1},'c:');
-        plot(fTSt{v,1},fVoVc{v,1},'y:');
+    % ts-based (windowed, faa-grid) dD/D & dV/V are the solid lines, with across-trial SEM shaded bands
+    ftr = fTSt{v,1}(:)';
+    patch([ftr fliplr(ftr)],[fDoDc{v,1}(:)'-fDoDsem{v,1}(:)' fliplr(fDoDc{v,1}(:)'+fDoDsem{v,1}(:)')],'c','FaceAlpha',0.2,'EdgeColor','none');
+    patch([ftr fliplr(ftr)],[fVoVc{v,1}(:)'-fVoVsem{v,1}(:)' fliplr(fVoVc{v,1}(:)'+fVoVsem{v,1}(:)')],'y','FaceAlpha',0.2,'EdgeColor','none');
+    hP1 = plot(fTSt{v,1},fDoDc{v,1},'c-');
+    hP2 = plot(fTSt{v,1},fVoVc{v,1},'y-');
+    if showTs   % resp-based dD/D & dV/V as dotted lines of matching color
+        plot(t,dDoD,'c:');
+        plot(t,dVoV,'y:');
     end
     ylabel('dX/X'); xlabel('post stim onset time (s)')
     grid on; axis tight
     yLim = ylim; yLim = [-1 1].*max(abs(yLim)); ylim(yLim);
     axis square
-    hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none');
+    hP3 = patch([0 1 1 0].*mean(dsgn.ondurList), [1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim), 0.5.*[1 1 1], 'EdgeColor','none','Tag','stimDur');
     legend([hP1 hP2 hP3],{'dD/D','dV/V','stimulus duration'},'Location','northeast')
 
     % faa timecourse (single axis; bottom-left). The green dQ/Q timecourse has its own panel.
@@ -2595,9 +2667,14 @@ for v = 1:length(vessel)
 
     % green response timecourse (dQ/Q, or the selected fit intercept) -- its own panel (mid-left)
     axQ{end+1} = nexttile(4); hold on
-    if isQ; plot(t,dQoQ,'-','Color',intCol);
-    else;   plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol); end
-    if showTs && isQ; plot(fTSt{v,1},fIItc{v,1},':','Color',intCol); end   % ts dQ/Q dotted vs resp solid (for X/Y the intercept is already ts-based -> no overlay)
+    if isQ
+        % ts-based dQ/Q is the solid line with across-trial SEM band; resp-based dQ/Q is dotted
+        patch([ftr fliplr(ftr)],[fIItc{v,1}(:)'-fIIsem{v,1}(:)' fliplr(fIItc{v,1}(:)'+fIIsem{v,1}(:)')],intCol,'FaceAlpha',0.2,'EdgeColor','none');
+        plot(fTSt{v,1},fIItc{v,1},'-','Color',intCol);
+        if showTs; plot(t,dQoQ,':','Color',intCol); end   % resp dQ/Q dotted vs ts solid
+    else
+        plot(TTc{v,1},res(kTc).(intFld),'-','Color',intCol);   % X/Y fit intercept is already ts-based -> single solid line
+    end
     if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
     xlabel('post stim onset time (s)')
     grid on; axis square; xlim(ax1{end}.XLim)
@@ -2696,7 +2773,7 @@ for axsc = [ax4 ax5 axPre]
 end
 % stim-duration patch at the bottom of each timecourse panel (dX/X, faa, dQ/Q)
 for i = 1:length(ax1)
-    hP = findobj(ax1(i).Children,'Type','patch');
+    hP = findobj(ax1(i).Children,'Type','patch','Tag','stimDur');   % SEM-band patches are untagged -> excluded
     yLim = ax1(i).YLim;
     hP.Vertices = [[0 1 1 0]'.*mean(dsgn.ondurList) ([1 1 1 1].*yLim(1) + [0 0 0.025 0.025].*range(yLim))'];
     for ax = [ax2(i) axQ(i)]
@@ -2712,15 +2789,16 @@ figs(end+1) = figure; ht = tiledlayout(3,3); ht.Padding = 'compact'; ht.TileSpac
 title(ht,'summary across vessels (N=' + string(size(dDoD,1)) + ' vessels)')
 
 ax11 = nexttile(1); hold on
-hP1 = shplot(t(1,:),mean(dDoD,1),std(dDoD,[],1)./sqrt(size(dDoD,1)));
+% ts-based (windowed, faa-grid) dD/D & dV/V means are solid with across-vessel SEM bands; resp-based means are dotted
+hP1 = shplot(fTSg,mean(fDoD,1),std(fDoD,[],1)./sqrt(size(fDoD,1)));
 delete([hP1.upper hP1.lower]);
 hP1.line.Color = 'c'; hP1.patch.FaceColor = 'c'; hP1.patch.FaceAlpha = 0.25; hP1.patch.EdgeColor = 'none';
-hP2 = shplot(t(1,:),mean(dVoV,1),std(dVoV,[],1)./sqrt(size(dVoV,1)));
+hP2 = shplot(fTSg,mean(fVoV,1),std(fVoV,[],1)./sqrt(size(fVoV,1)));
 delete([hP2.upper hP2.lower]);
 hP2.line.Color = 'y'; hP2.patch.FaceColor = 'y'; hP2.patch.FaceAlpha = 0.25; hP2.patch.EdgeColor = 'none';
-if showTs   % ts-based (windowed, faa-grid) dD/D & dV/V means as dotted lines
-    plot(fTSg,mean(fDoD,1),'c:');
-    plot(fTSg,mean(fVoV,1),'y:');
+if showTs   % resp-based dD/D & dV/V means as dotted lines
+    plot(t(1,:),mean(dDoD,1),'c:');
+    plot(t(1,:),mean(dVoV,1),'y:');
 end
 ylabel('dX/X'); xlabel('post stim onset time (s)')
 grid on; axis tight
@@ -2785,10 +2863,17 @@ hB.MarkerFaceColor = hB.MarkerEdgeColor;
 
 %%% Green response timecourse (dQ/Q, or selected fit intercept) summary -- its own panel (mid-left)
 axQs = nexttile(4); hold on
-xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));
-patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
-plot(xx,ym,'-','Color',intCol);
-if showTs && isQ; plot(fTSg,mean(fIIm,1),':','Color',intCol); end   % ts dQ/Q dotted vs resp solid (X/Y intercept already ts-based -> no overlay)
+if isQ
+    % ts-based dQ/Q mean is solid with across-vessel SEM band; resp-based dQ/Q mean is dotted
+    xx = fTSg; ym = mean(fIIm,1); ye = std(fIIm,[],1)./sqrt(size(fIIm,1));
+    patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
+    plot(xx,ym,'-','Color',intCol);
+    if showTs; plot(RTt,mean(IItc,1),':','Color',intCol); end   % resp dQ/Q dotted vs ts solid
+else
+    xx = RTt; ym = mean(IItc,1); ye = std(IItc,[],1)./sqrt(size(IItc,1));   % X/Y fit intercept already ts-based -> single solid line + band
+    patch([xx fliplr(xx)],[ym-ye fliplr(ym+ye)],intCol,'FaceAlpha',0.25,'EdgeColor','none');
+    plot(xx,ym,'-','Color',intCol);
+end
 if isQ; ylabel(intLbl); else; ylabel([intLbl ' (' winLbl ')']); end   % X/Y intercept is windowed; dQ/Q is not
 xlabel('post stim onset time (s)')
 grid on; axis square; xlim(ax11.XLim)
