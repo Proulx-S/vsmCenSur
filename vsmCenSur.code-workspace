@@ -18,5 +18,10 @@
 		{
 			"path": "../tools/bassReg2"
 		}
-	]
+	],
+	"settings": {
+		"MATLAB.matlabConnectionTiming": "onDemand",
+		"MATLAB.indexWorkspace": true,
+		"MATLAB.maxFileSizeForAnalysis": 100000
+	}
 }

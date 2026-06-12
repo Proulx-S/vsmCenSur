@@ -2351,9 +2351,8 @@ end
 
 
 
-return
 
-
+if 0
 %%%%%%%%%%%%%%%%%%%%%%%
 %% Inspect response SVD
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -2406,6 +2405,7 @@ adjPoly(hIol{end},'original','w',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol
 % [~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'respPeakVox',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'respPeakVox';
 
 %% %%%%%%%%%%%%%%%%%%%%
+end
 
 
 
@@ -2418,7 +2418,7 @@ intType = 'Qexact';   % right-axis timecourse: 'X'/'Y' fit intercept, or 'Qexact
 intCI   = [];         % intercept right-axis range: central intCI%% of pooled values; 100 = full min-max; [] = auto
 scatCI  = 100;         % scatter dD/D-dV/V half-range: central scatCI%% of pooled |values|; 100 or [] = full (max)
 showLeg = false;       % false -> drop all dV/dD legends so data fills the panels in the png; true -> keep them
-showTs  = true;        % true -> overlay the ts-based (windowed, faa-grid) dD/D, dV/V & dQ/Q as dotted lines on the resp-based timecourses
+showTs  = false;       % true -> overlay the resp-based timecourses dD/D, dV/V & dQ/Q as dotted lines
 dN      = 0;
 acq = 'vfMRI_dflt_none'; task = 'task_50sPrd5sDur';
 dsgn = rCond{1}.(acq).(task).dsgn;
@@ -2433,24 +2433,28 @@ iEndPost   = Inf;
 %% dV/dD
 %%%%%%%%
 
-for S = 1:size(subList,1)
-    for A = 1:length(acqList)
-        acq  = acqList{A};
-        if ~isfield(rCond{S},acq)          ; continue; end
-        if contains(acq,{'bold' 'vfMRIpc'}); continue; end
-        for T = 1:length(taskList)
-            task = taskList{T};
-            if ~strcmp(task,'task_50sPrd5sDur'); continue; end
-            if ~isfield(rCond{S}.(acq),task); continue; end
+% for S = 1:size(subList,1)
+%     for A = 1:length(acqList)
+%         acq  = acqList{A};
+%         if ~isfield(rCond{S},acq)          ; continue; end
+%         if contains(acq,{'bold' 'vfMRIpc'}); continue; end
+%         for T = 1:length(taskList)
+%             task = taskList{T};
+%             if ~strcmp(task,'task_50sPrd5sDur'); continue; end
+%             if ~isfield(rCond{S}.(acq),task); continue; end
 
-            %%% Extract area, diameter, velocity flow proxies
-            roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
-            %%% ts-based windowed proxies (dX/X & dQ/Q) + faa (getFaa via indexTs2Trial; sliding timecourse)
-            roi{S}.(acq).(task).vessel = getAreaDiamVelFlowFaaProxyFromTs(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
 
-        end
-    end
-end
+%             %%% Get svd responses (for visualizing spatial pattern)
+%             roi{S}.(acq).(task).vessel = getVesselResp(roi{S}.(acq).(task).vessel);
+
+%             %%% Extract area, diameter, velocity flow proxies
+%             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
+
+%             %%% ts-based windowed proxies (dX/X & dQ/Q) + faa (getFaa via indexTs2Trial; sliding timecourse)
+%             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowFaaProxyFromTs(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);            
+%         end
+%     end
+% end
 
 
 
@@ -2465,10 +2469,28 @@ for S = 1:size(subList,1)
         if        ~roi{S}.(acq).(task).vessel(v).anot_sig                       ; continue; end
         if ~strcmp(roi{S}.(acq).(task).vessel(v).anot_actType,'center-surround'); continue; end
         vessel{end+1} = roi{S}.(acq).(task).vessel(v);
-        vessel{end}.sId = subList{S};
+        vessel{end}.sId         = subList{S};
+        vessel{end}.dsgn        = rCond{S}.(acq).(task).dsgn;
+        vessel{end}.tr          = rCond{S}.(acq).(task).tr;
+        vessel{end}.tsStartTime = rCond{S}.(acq).(task).tsStartTime;
     end
 end
+
+% Process vessels
+for v = 1:length(vessel)
+    disp(['Processing vessel ' num2str(v) ' of ' num2str(length(vessel))]);
+    %%% Get svd responses (for visualizing spatial pattern)
+    vessel{v} = getVesselResp(vessel{v});
+
+    %%% Extract area, diameter, velocity flow proxies
+    if showTs; rawSource = {'resp','ts'}; else; rawSource = {'ts'}; end
+    vessel{v} = getAreaDiamVelFlowProxy(vessel{v},'peakVox','dilate1p5',rawSource,0);
+
+    %%% ts-based windowed proxies (dX/X & dQ/Q) + faa (getFaa via indexTs2Trial; sliding timecourse)
+    vessel{v} = getAreaDiamVelFlowFaaProxyFromTs(vessel{v},[],dN);            
+end
 vessel = cat(1,vessel{:});
+
 
 
 % design (onset list / stim duration) for this acq/task
@@ -2490,11 +2512,6 @@ for S = 1:size(subList,1)
     end
 end
 
-
-
-tmp = getVesselResp(vessel(1));
-
-tmp.svdResp
 
 
 % faa pre-, during- and post-stim windows, in TRUE onset-relative time points. indexTs2Trial
@@ -2616,12 +2633,12 @@ for v = 1:length(vessel)
     nRun   = size(dVoVts,1);
     nTrial = nRun.*length(dsgn.onsetList);
 
-    figs(v) = figure; ht = tiledlayout(3,3); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
+    figs(v) = figure; ht = tiledlayout(3,4); ht.Padding = 'compact'; ht.TileSpacing = 'compact';
     % title(ht,'subjId=' + string(vessel(v).sId) + '; vesselId=' + string(vessel(v).id) + ...
             %   '; Ntrials=' + string(nTrial) + '; Nrun=' + string(nRun))
 
     % dD/D and dV/V timecourse
-    ax1{end+1} = nexttile; hold on
+    ax1{end+1} = nexttile(4); hold on
     % ts-based (windowed, faa-grid) dD/D & dV/V are the solid lines, with across-trial SEM shaded bands
     ftr = fTSt{v,1}(:)';
     patch([ftr fliplr(ftr)],[fDoDc{v,1}(:)'-fDoDsem{v,1}(:)' fliplr(fDoDc{v,1}(:)'+fDoDsem{v,1}(:)')],'c','FaceAlpha',0.2,'EdgeColor','none');
@@ -2640,7 +2657,7 @@ for v = 1:length(vessel)
     legend([hP1 hP2 hP3],{'dD/D','dV/V','stimulus duration'},'Location','northeast')
 
     % faa timecourse (single axis; bottom-left). The green dQ/Q timecourse has its own panel.
-    ax2{end+1} = nexttile(7); hold on
+    ax2{end+1} = nexttile(12); hold on
     hP1 = plot(TTc{v,1},FFc{v,1},'w-'); axis tight square
     dtTs = vessel(v).faa.align.dt; dNtc = res(kTc).dN;
     winLbl = [num2str((dNtc*2+1)*dtTs,3) '-sec sliding window'];   % window annotation (folded into ylabel; was a title)
@@ -2665,7 +2682,7 @@ for v = 1:length(vessel)
     IIpost{v,1} = mean(IItc{v,1}(gGrid>=tPost(1) & gGrid<=tPost(2)),'omitnan');
 
     % green response timecourse (dQ/Q, or the selected fit intercept) -- its own panel (mid-left)
-    axQ{end+1} = nexttile(4); hold on
+    axQ{end+1} = nexttile(8); hold on
     if isQ
         % ts-based dQ/Q is the solid line with across-trial SEM band; resp-based dQ/Q is dotted
         patch([ftr fliplr(ftr)],[fIItc{v,1}(:)'-fIIsem{v,1}(:)' fliplr(fIItc{v,1}(:)'+fIIsem{v,1}(:)')],intCol,'FaceAlpha',0.2,'EdgeColor','none');
@@ -2679,7 +2696,7 @@ for v = 1:length(vessel)
     grid on; axis square; xlim(ax1{end}.XLim)
 
     % faa using pre-stim time points only (same points as the faa-panel pre-stim marker)
-    axPre{end+1} = nexttile(2); hold on
+    axPre{end+1} = nexttile(3); hold on
     Xs = dDoDts(:,colsPre); Ys = dVoVts(:,colsPre);
     hP1 = scatter(Xs(:),Ys(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
     alpha(hP1,0.1); axis square
@@ -2695,7 +2712,7 @@ for v = 1:length(vessel)
     legend([hP1 hFit],'pre-stim tPts','faa = ' + string(FFpre{v,1}),'Location','northeast')
 
     % faa using during-stim time points only (same points as the faa-panel during-stim marker)
-    ax4{end+1} = nexttile(5); hold on
+    ax4{end+1} = nexttile(7); hold on
     Xs = dDoDts(:,colsStim); Ys = dVoVts(:,colsStim);
     hP1 = scatter(Xs(:),Ys(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
     alpha(hP1,0.1); axis square
@@ -2711,7 +2728,7 @@ for v = 1:length(vessel)
     legend([hP1 hFit],'during-stim tPts','faa = ' + string(FFstim{v,1}),'Location','northeast')
 
     % faa using post-stim time points only (same points as the faa-panel post-stim marker)
-    ax5{end+1} = nexttile(8); hold on
+    ax5{end+1} = nexttile(11); hold on
     Xs = dDoDts(:,colsPost); Ys = dVoVts(:,colsPost);
     hP1 = scatter(Xs(:),Ys(:),'filled','o','MarkerFaceColor','w','MarkerEdgeColor','none');
     alpha(hP1,0.1); axis square
@@ -2725,6 +2742,43 @@ for v = 1:length(vessel)
     plot(ax5{end},[0 -scatLim],[1 1].*YIpost{v,1},'r--'); % Y-intercept -> dV/V axis (dV/V at dD/D=0)
     plot(ax5{end},[1 1].*XIpost{v,1},[0 -scatLim],'r--'); % X-intercept -> dD/D axis (dD/D at dV/V=0)
     legend([hP1 hFit],'post-stim tPts','faa = ' + string(FFpost{v,1}),'Location','northeast')
+
+    % underlay: base anatomical image (plotUL3.m 'base' logic, minimal) -- top of the left column (tile 1)
+    axUL = nexttile(1); hold on
+    imagesc(axUL,vessel(v).im.base.x,vessel(v).im.base.y,vessel(v).im.base.im);   % vessel-by-vessel CLim (autoscale)
+    colormap(axUL,'gray');
+    axis(axUL,'image'); set(axUL,'YDir','reverse','XTick',[],'YTick',[]);
+    title(axUL,'underlay','Interpreter','none')
+
+    % svSpace spatial component-1 (plotOL.m 'svSpace' logic; artery) -- second in the left column (tile 4)
+    axSV = nexttile(5); hold on
+    cSV = 'r';                                                          % artery color
+    xSV  = vessel(v).im.act.x;
+    ySV  = vessel(v).im.act.y;
+    imSV = zeros(size(vessel(v).svdResp.maskSVD));
+    imSV(vessel(v).svdResp.maskSVD) = vessel(v).svdResp.svSpace(1,:);    % component 1 (svSpace_1)
+    cLimSV = max(abs(imSV(:)));
+    imagesc(axSV,xSV,ySV,imSV,[-1 1].*cLimSV);
+    set(axSV,'Colormap',colormap_blueNeutralRed(0,0.1,0,0.4,2^10,true));
+    plot(axSV,vessel(v).poly(1),'FaceColor','none','EdgeColor',cSV);     % vessel contour
+    xline(axSV,vessel(v).com(1),'w');                                    % COM crosshair
+    yline(axSV,vessel(v).com(2),'w');
+    axis(axSV,'image'); set(axSV,'YDir','reverse','XTick',[],'YTick',[]);
+    axSV.XAxis.Color = cSV;     axSV.YAxis.Color     = cSV;
+    axSV.XAxis.LineWidth = 2;   axSV.YAxis.LineWidth = 2;
+    title(axSV,'svSpace_1','Interpreter','none')
+
+    % svTime temporal component-1 (plotResp.m 'svTime' logic) -- bottom of the left column (tile 7)
+    axSVt = nexttile(9); hold on
+    tsSVt = vessel(v).svdResp.svTime(1,:)';                              % component 1 temporal singular vector
+    tSVt  = (0:numel(tsSVt)-1).*vessel(v).im.resp.dt;                   % time axis (s), as in plotResp 'svTime'
+    plot(axSVt,tSVt,tsSVt,'w-');
+    grid on; axis tight square; xlim(axSVt,ax1{end}.XLim)               % match the dD/D timecourse x range
+    ylabel('svTime_1','Interpreter','none'); xlabel('post stim onset time (s)')
+
+    % svSpace color scale: added last (after all nexttile calls) on the column's outer
+    % margin so the colorbar can't steal a grid tile ("tile does not fit" otherwise)
+    colorbar(axSV,'Location','westoutside')
 end
 dDoD   = cat(1,dDoDc{:}); dVoV = cat(1,dVoVc{:}); t = cat(1,tc{:});
 dQoQe  = cat(1,dQoQec{:}); dQoQa = cat(1,dQoQac{:});   % both flow-change variants (variables of interest)
