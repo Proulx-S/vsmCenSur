@@ -2379,12 +2379,11 @@ S=subIndList(1);
 tiling = plotUL3(roi{S}.(acq).(task).vessel,'base'     ,[100 1500],4);
 hFol   = {}; hAol   = {}; hIol   = {};
 hFresp = {}; hAresp = {}; hTresp = {};
-[hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'coef thresholded';
+% [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'coef'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
+% adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'coef thresholded';
 [hFol{end+1},hAol{end+1},hIol{end+1}] = plotOL( [],{'svSpace_1'},roi{S}.(acq).(task).vessel,tiling.sub.right.hA);
-adjPoly(hIol{end},'original','k',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'coef thresholded';
-colormap jet
-[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'svTime_2';
+adjPoly(hIol{end},'original','w',-1); adjPoly(hIol{end},'dilate1p5','w',1); hFol{end}.Name = 'spatial sv';
+[~,hFresp{end+1},hAresp{end+1},hTresp{end+1}] = plotResp([],'svTime_1',roi{S}.(acq).(task).vessel,tiling.sub.right.hA); hFresp{end}.Name = 'temporal sv';
 
 
 
@@ -2495,7 +2494,7 @@ end
 
 tmp = getVesselResp(vessel(1));
 
-tmp.svdResp.
+tmp.svdResp
 
 
 % faa pre-, during- and post-stim windows, in TRUE onset-relative time points. indexTs2Trial
