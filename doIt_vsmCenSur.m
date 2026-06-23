@@ -731,6 +731,362 @@ end
 
 
 
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Figure for grant, panel A, C and D
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+s    = 1;
+acq  = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+
+hdr  = MRIread(char(rCond{s}.(acq).(task).volResp.mag.actCat.stats.fPoly0Base_catAv),1);
+coef = MRIread(char(rCond{s}.(acq).(task).volResp.mag.actCat.stats.fCondCoef_adj));    coef = coef.vol;
+pVal = MRIread(char(rCond{s}.(acq).(task).volResp.mag.actCat.stats.fCondF_pVal));      pVal = pVal.vol;
+base = MRIread(char(rCond{s}.(acq).(task).volResp.mag.actCat.stats.fPoly0Base_catAv)); base = base.vol;
+mask = MRIread(char(rCond{s}.(acq).(task).volResp.mag.actCat.stats.fMask));            mask = mask.vol;
+
+
+% Bounding box of the non-zero mask voxels -> used as display limits (not a crop)
+m = mask~=0 & ~isnan(mask);
+[ri,ci,~] = ind2sub(size(m),find(m));
+xLimMask = [min(ci) max(ci)] + [-0.5 0.5];   % columns -> x; +/-0.5 to include edge pixels
+yLimMask = [min(ri) max(ri)] + [-0.5 0.5];   % rows    -> y
+
+% Display base in grayscale with coef(:,:,:,1) overlaid in jet (transparent outside mask)
+baseImg = squeeze(base(:,:,1,1));
+coefImg = squeeze(coef(:,:,1,1));
+maskImg = squeeze(mask(:,:,1,1))~=0;
+
+% significance mask
+qVal = ones(size(pVal));
+% qVal(maskImg) = mafdr(pVal(logical(maskImg)),'BHFDR',true);
+qVal(maskImg) = mafdr(pVal(logical(maskImg)));
+
+
+hFmap = figure
+set(gcf,'Units','pixels');
+t = tiledlayout(1,1,'Padding','compact','TileSpacing','tight');   % single tile; both axes stack in it, colorbars live outside
+alpha = 0.01;
+
+ax1 = axes(t);
+imagesc(ax1,baseImg,[180 800]);
+colormap(ax1,gray);
+axis(ax1,'equal'); set(ax1,'YDir','reverse');   % 1:1 data aspect, limits set below
+set(ax1,'XTick',[],'YTick',[]);
+
+ax2 = axes(t);
+hOl = imagesc(ax2,coefImg,[-1 1].*max(abs(coefImg(qVal<alpha))));
+set(hOl,'AlphaData',qVal<alpha);
+colormap(ax2,colormap_blueNeutralRed(0,0));   % diverging blue-red, no neutral/transition zones
+axis(ax2,'equal'); set(ax2,'YDir','reverse');   % 1:1 data aspect, limits set below
+ax2.Color = 'none'; ax2.Visible = 'off';
+
+linkaxes([ax1 ax2]);
+set(ax1,'XLim',xLimMask,'YLim',yLimMask);   % zoom to the mask bbox (linkaxes propagates to ax2)
+cbBase = colorbar(ax1);             % underlay (base, grayscale)
+cbBase.Layout.Tile = 'west';
+ylabel(cbBase,'MR signal (a.u.)');
+cbOl = colorbar(ax2);               % overlay (coef, blue-red)
+cbOl.Layout.Tile = 'east';          % both managed by the layout, so they never shrink the axes
+ylabel(cbOl,'\beta coefficients');
+
+title(ax1,...
+[rCond{s}.(acq).(task).sub '; ' ...
+num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
+num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run'])
+
+% Export the figure (before the XLim/YLim crop) to grantFigure/
+grantDir = fullfile(pwd,'grantFigure');
+if ~exist(grantDir,'dir'); mkdir(grantDir); end
+name = 'vsmCenSur_fullFOV';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+
+
+
+
+% Example artery
+figure(hFmap)
+vIdx = 2;
+baseIm = cat(5,roi{s}.(acq).(task).vessel(vIdx).im.basePolyRun.im{:});
+respIm = cat(5,roi{s}.(acq).(task).vessel(vIdx).im.resp2.im{:});
+respDt = roi{s}.(acq).(task).vessel(vIdx).im.resp.dt;
+baseImAv = mean(baseIm,5);
+[~,pkInd]  = max(baseImAv(:));                  % max() ignores NaNs by default
+[pr,pc,ps] = ind2sub(size(baseImAv),pkInd);
+respBs     = squeeze(baseIm(pr,pc,ps,:,:));
+respTc     = squeeze(respIm(pr,pc,ps,:,:))';     % nTimePoints x 1
+
+xLim = [-0.5 0.5] + roi{s}.(acq).(task).vessel(vIdx).cropXlim;
+yLim = [-0.5 0.5] + roi{s}.(acq).(task).vessel(vIdx).cropYlim;
+xLim = [-10 10] + xLim;
+yLim = [-10 10] + yLim;
+xlim(xLim);
+ylim(yLim);
+
+
+peakX = roi{s}.(acq).(task).vessel(vIdx).cropXlim(1) + pc;
+peakY = roi{s}.(acq).(task).vessel(vIdx).cropYlim(1) + pr;
+yline(ax2,peakY-1,'w')
+xline(ax2,peakX-1,'w')
+
+title(ax1,...
+[rCond{s}.(acq).(task).sub '; ' ...
+num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
+num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
+'; example artery'])
+
+
+name = 'vsmCenSur_exampleAretry';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+
+
+respTcAv          = mean(respTc   ,1);
+respTcEr          = std( respTc,[],1)./sqrt(size(respTc,1)-1);
+respTcEr([1 end]) = std( respBs     )./sqrt(size(respTc,1)-1);
+respT             = linspace(0,(numel(respTcAv)-1)*respDt,numel(respTcAv));
+
+hFresp = figure;
+fill([respT flip(respT)],[respTcAv-respTcEr flip(respTcAv+respTcEr)], ...
+     'w','FaceAlpha',0.2,'EdgeColor','none');
+hold on
+plot(respT,respTcAv,'w-','LineWidth',1.5);
+grid on
+axis tight
+yline(0,':w')
+ylim([-1 1].*max(abs(ylim)))
+axis square
+ax = gca;
+ax.TickDir = 'out';
+
+dur = mean(rCond{s}.(acq).(task).dsgn.ondurList);
+yLim = ylim;
+fill([0 dur dur 0],[yLim(1) yLim(1) yLim(1)+diff(yLim)*0.02 yLim(1)+diff(yLim)*0.02],...
+    0.5.*[1 1 1],'EdgeColor','none');
+
+xlabel('post stimulus onset time (s)')
+ylabel('MR signal change (a.u.)')
+
+title(ax,...
+[rCond{s}.(acq).(task).sub '; ' ...
+num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
+num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
+'; example artery response; error=sem across runs'])
+
+name = 'vsmCenSur_exampleAretryResponse';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+
+
+
+
+
+% Example vein
+figure(hFmap)
+vIdx = 7;
+baseIm = cat(5,roi{s}.(acq).(task).vessel(vIdx).im.basePolyRun.im{:});
+respIm = cat(5,roi{s}.(acq).(task).vessel(vIdx).im.resp2.im{:});
+respDt = roi{s}.(acq).(task).vessel(vIdx).im.resp.dt;
+baseImAv = mean(baseIm,5);
+[~,pkInd]  = max(baseImAv(:));                  % max() ignores NaNs by default
+[pr,pc,ps] = ind2sub(size(baseImAv),pkInd);
+respBs     = squeeze(baseIm(pr,pc,ps,:,:));
+respTc     = squeeze(respIm(pr,pc,ps,:,:))';     % nTimePoints x 1
+
+xLim = [-0.5 0.5] + roi{s}.(acq).(task).vessel(vIdx).cropXlim
+yLim = [-0.5 0.5] + roi{s}.(acq).(task).vessel(vIdx).cropYlim
+xLim = [-10 10] + xLim;
+yLim = [-10 10] + yLim;
+xlim(xLim)
+ylim(yLim)
+
+
+peakX = roi{s}.(acq).(task).vessel(vIdx).cropXlim(1) + pc;
+peakY = roi{s}.(acq).(task).vessel(vIdx).cropYlim(1) + pr;
+yline(ax2,peakY-1,'w')
+xline(ax2,peakX-1,'w')
+
+title(ax2,...
+[rCond{s}.(acq).(task).sub '; ' ...
+num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
+num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
+'; example vein'])
+
+
+name = 'vsmCenSur_exampleVein';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+
+
+respTcAv          = mean(respTc   ,1);
+respTcEr          = std( respTc,[],1)./sqrt(size(respTc,1)-1);
+respTcEr([1 end]) = std( respBs     )./sqrt(size(respTc,1)-1);
+respT             = linspace(0,(numel(respTcAv)-1)*respDt,numel(respTcAv));
+
+hFresp = figure;
+fill([respT flip(respT)],[respTcAv-respTcEr flip(respTcAv+respTcEr)], ...
+     'w','FaceAlpha',0.2,'EdgeColor','none');
+hold on
+plot(respT,respTcAv,'w-','LineWidth',1.5);
+grid on
+axis tight
+yline(0,':w')
+ylim([-1 1].*max(abs(ylim)))
+axis square
+ax = gca;
+ax.TickDir = 'out';
+
+dur = mean(rCond{s}.(acq).(task).dsgn.ondurList);
+yLim = ylim;
+fill([0 dur dur 0],[yLim(1) yLim(1) yLim(1)+diff(yLim)*0.02 yLim(1)+diff(yLim)*0.02],...
+    0.5.*[1 1 1],'EdgeColor','none');
+
+xlabel('post stimulus onset time (s)')
+ylabel('MR signal change (a.u.)')
+
+title(ax,...
+[rCond{s}.(acq).(task).sub '; ' ...
+num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
+num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
+'; example vein response; error=sem across runs'])
+
+
+name = 'vsmCenSur_exampleVeinResponse';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+
+
+
+
+
+xLim = [109 168]; yLim = [69 131];
+set(ax1,'XLim',xLim,'YLim',yLim)
+
+% Export the figure (after the XLim/YLim crop) to grantFigure/
+name = 'vsmCenSur_smallFOV';
+savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+end
+
+
+
+
+if 0
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Figure for grant, panel B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+acq  = 'vfMRI_dflt_none';
+task = 'task_50sPrd5sDur';
+
+% Collect significantly-active center-surround arteries across ALL subjects -> [subject vessel]
+selList = zeros(0,2);
+for S = 1:numel(roi)
+    if isempty(roi{S}) || ~isfield(roi{S},acq) || ~isfield(roi{S}.(acq),task); continue; end
+    vAll = roi{S}.(acq).(task).vessel;
+    for vv = 1:numel(vAll)
+        if strcmp(vAll(vv).class,'artery') ...
+                && vAll(vv).anot_sig==1 ...
+                && strcmp(vAll(vv).anot_actType,'center-surround')
+            selList(end+1,:) = [S vv]; %#ok<AGROW>
+        end
+    end
+end
+nPan = size(selList,1);
+
+cmapBR = colormap_blueNeutralRed(0,0,[],0.5);   % diverging blue-red, no neutral/transition zones
+N      = size(cmapBR,1);
+
+hFpanelB = figure;
+tB = tiledlayout(3,3,'Padding','compact','TileSpacing','compact');
+alpha = 0.05;   % FDR significance threshold for the overlay
+for k = 1:nPan
+    S  = selList(k,1);
+    vv = selList(k,2);
+
+    % 11x11 base underlay and activation overlay
+    baseImg = squeeze(roi{S}.(acq).(task).vessel(vv).im.base.im);
+    actImg  = squeeze(roi{S}.(acq).(task).vessel(vv).im.act.im(:,:,:,1));
+    % maskImg = roi{S}.(acq).(task).vessel(vv).polyMask{ismember(roi{S}.(acq).(task).vessel(vv).polyLabel,'dilate2')};
+    maskImg = true(size(actImg));
+    xLim = roi{S}.(acq).(task).vessel(vv).cropXlim;
+    yLim = roi{S}.(acq).(task).vessel(vv).cropYlim;
+    
+
+    % FDR-adjusted significance (mafdr only on valid p-values; rest -> 1 = not significant)
+    pIm   = roi{S}.(acq).(task).vessel(vv).im.actP.im(:);
+    actP  = ones(size(pIm));
+    % valid = ~isnan(pIm);
+    valid = logical(maskImg);
+    actP(valid) = mafdr(pIm(valid),'BHFDR',true);
+    actP  = reshape(actP,size(actImg));
+    sig   = actP < alpha;
+
+    cl = max(abs(actImg(sig)),[],'omitnan');               % symmetric limits from significant voxels
+    if isempty(cl) || ~(cl>0); cl = max(abs(actImg(:)),[],'omitnan'); end   % fallback if none significant
+
+    % base (grayscale)
+    axB = nexttile(tB,k);
+    imagesc(axB,xLim,yLim,baseImg,[180 800]);
+    colormap(axB,gray);
+    axis(axB,'image'); set(axB,'YDir','reverse','XTick',[],'YTick',[]);
+
+    % activation overlay (blue-red), shown only where significant
+    axO = axes(tB); axO.Layout.Tile = k;
+    hO  = imagesc(axO,xLim,yLim,actImg,[-cl cl]);
+    set(hO,'AlphaData',sig);
+    colormap(axO,cmapBR);
+    axis(axO,'image'); set(axO,'YDir','reverse');
+    axO.Color = 'none'; axO.Visible = 'off';
+    linkaxes([axB axO]);
+    ylabel(colorbar(axO),'\beta coefficient');                                         % per-panel activation colorbar
+    text(axO,size(actImg,2)+0.4,0.5,sprintf('s%dv%d',S,vv), ...
+        'HorizontalAlignment','right','VerticalAlignment','top', ...
+        'Color','w','FontSize',8);
+
+
+    hold on
+    hOutline1 = plot(roi{S}.(acq).(task).vessel(vv).poly(ismember(roi{S}.(acq).(task).vessel(vv).polyLabel,'dilate1')));
+    hOutline1.FaceColor = 'none';
+    hOutline1.EdgeColor = 'c';
+    hOutline1.LineWidth = 2;
+    
+    hOutline2 = plot(roi{S}.(acq).(task).vessel(vv).poly(ismember(roi{S}.(acq).(task).vessel(vv).polyLabel,'original')));
+    hOutline2.FaceColor = 'none';
+    hOutline2.EdgeColor = 'y';
+    hOutline2.LineWidth = 2;
+end
+
+title(tB,'\bf\color{yellow}lumen roi\rm\color[rgb]{1 1 1} and \bf\color{cyan}surround roi','Interpreter','tex')
+
+% Export to grantFigure/
+grantDir = fullfile(pwd,'grantFigure');
+if ~exist(grantDir,'dir'); mkdir(grantDir); end
+name = 'vsmCenSur_panelB_csArteries';
+savefig(hFpanelB,                  fullfile(grantDir,[name '.fig']));
+print(hFpanelB,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+print(hFpanelB,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+print(hFpanelB,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+%% %%%%%%%%%%%%%%%%%%%%%%%%%
+end
+
+
+
+
 
 
 
