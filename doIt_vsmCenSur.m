@@ -731,7 +731,7 @@ end
 
 
 
-if 0
+if 1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Figure for grant, panel A, C and D
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -800,8 +800,8 @@ num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run'])
 grantDir = fullfile(pwd,'grantFigure');
 if ~exist(grantDir,'dir'); mkdir(grantDir); end
 name = 'vsmCenSur_fullFOV';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+savefig(gcf,                   fullfile(grantDir,[name '.fig']));
+print(gcf,'-dsvg', '-painters','-r300',fullfile(grantDir,[name '.svg']));
 print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
 print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
 
@@ -986,7 +986,7 @@ end
 
 
 
-if 0
+if 1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Figure for grant, panel B
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
