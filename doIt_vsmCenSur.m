@@ -56,7 +56,7 @@ addpath(genpath(fullfile(toolDir,tool)))
 % if ~exist(fullfile(toolDir, tool), 'dir'); tmpZip = fullfile(tempdir, 'shplot.zip'); websave(tmpZip, toolURL); unzip(tmpZip, fullfile(toolDir, tool)); delete(tmpZip); end
 % addpath(genpath(fullfile(toolDir,tool)))
 
-tool = 'vfMRItools'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = '';
+tool = 'vfMRItools'; repoURL = 'https://github.com/Proulx-S/vfMRItools'; subTool = ''; branch = 'main';
 gitClone(repoURL, fullfile(toolDir, tool), subTool, branch);
 
 tool = 'fieldtrip'; repoURL = 'https://github.com/fieldtrip/fieldtrip'; subTool = 'external/freesurfer'; branch = '';
@@ -732,6 +732,7 @@ end
 
 
 if 1
+printIt = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Figure for grant, panel A, C and D
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -797,13 +798,15 @@ num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
 num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run'])
 
 % Export the figure (before the XLim/YLim crop) to grantFigure/
-grantDir = fullfile(pwd,'grantFigure');
-if ~exist(grantDir,'dir'); mkdir(grantDir); end
-name = 'vsmCenSur_fullFOV';
-savefig(gcf,                   fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters','-r300',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    grantDir = fullfile(pwd,'grantFigure');
+    if ~exist(grantDir,'dir'); mkdir(grantDir); end
+    name = 'vsmCenSur_fullFOV';
+    savefig(gcf,                   fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters','-r600',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters','-r600',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 
 
 
@@ -840,11 +843,13 @@ num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
 '; example artery'])
 
 
-name = 'vsmCenSur_exampleAretry';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    name = 'vsmCenSur_exampleAretry';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 
 
 respTcAv          = mean(respTc   ,1);
@@ -879,11 +884,80 @@ num2str(rCond{s}.(acq).(task).volResp.mag.actCat.R) ' runs; ' ...
 num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
 '; example artery response; error=sem across runs'])
 
-name = 'vsmCenSur_exampleAretryResponse';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    name = 'vsmCenSur_exampleAretryResponse';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
+
+
+
+% --- Area & velocity timecourses from the deconvolved response (.im.resp) ---
+% getAreaDiamVelFlowProxy (main branch) reads the lumen/surround/tissue voxel masks
+% from the vessel's own polyLabel/polyMask (defaults lumen='peakVox', surround='dilate1p5',
+% tissue='tissue'). For a 'resp' field it adds the baseline (vessel.im.basePolyRun) back
+% before forming the ABSOLUTE proxies: area (partial-volume model) and velocity (mean lumen
+% signal). It also returns fractional changes for free (dA/A=respAoA, dV/V=respVoV).
+areaMethod   = 1;
+lumenMask    = 'peakVox';
+surroundMask = 'dilate1p5';
+vsl    = getAreaDiamVelFlowProxy(roi{s}.(acq).(task).vessel(vIdx), lumenMask, surroundMask, 'resp2',[],areaMethod);
+areaTc = vsl.im.resp2AoA.vec;     % per-run dA/A (fractional area change) timecourse
+velTc  = vsl.im.resp2VoV.vec;      % per-run dV/V (fractional velocity change) timecourse
+if iscell(areaTc)
+    areaTc = cat(1,areaTc{:});
+end
+if iscell(velTc)
+    velTc = cat(1,velTc{:});
+end
+respT  = (0:size(areaTc,2)-1) * roi{s}.(acq).(task).vessel(vIdx).im.resp.dt;   % time axis (s)
+areaTc_av = mean(areaTc   ,1);
+velTc_av  = mean(velTc    ,1);
+areaTc_er = std( areaTc,[],1)./sqrt(size(areaTc,1));
+velTc_er  = std( velTc ,[],1)./sqrt(size(velTc ,1));
+
+figure; hold on
+% symmetric, tight vertical bound shared by both axes (harmonized left/right)
+M = max(abs([areaTc_av-areaTc_er  areaTc_av+areaTc_er ...
+             velTc_av -velTc_er   velTc_av +velTc_er ]),[],'omitnan');
+
+yyaxis left                                    % area -> left axis, yellow
+fill([respT flip(respT)],[areaTc_av-areaTc_er flip(areaTc_av+areaTc_er)], ...
+     'y','FaceAlpha',0.2,'EdgeColor','none');
+plot(respT,areaTc_av,'-','Color','y','LineWidth',1.5);
+ylabel('area change  dA/A');
+ax = gca; ax.YColor = [1 1 0]; ylim([-M M]);
+
+yyaxis right                                   % velocity -> right axis, cyan
+fill([respT flip(respT)],[velTc_av-velTc_er flip(velTc_av+velTc_er)], ...
+     'c','FaceAlpha',0.2,'EdgeColor','none');
+plot(respT,velTc_av,'-','Color','c','LineWidth',1.5);
+ylabel('velocity change  dV/V');
+ax.YColor = [0 1 1]; ylim([-M M]);
+
+xlim([respT(1) respT(end)]);                   % tight horizontal
+yline(0,':','Color',[1 1 1]*0.5);
+xlabel('post stimulus onset time (s)');
+ax.TickDir = 'out'; grid on; box off
+ax.GridColorMode = 'manual'; ax.GridColor = [1 1 1]*0.5;   % neutral, uncolored grid
+pbaspect(ax,[1 1 1]);                                      % 1:1 plotting-area aspect
+
+% stimulus timing bar (as in the example-artery plot)
+dur = mean(rCond{s}.(acq).(task).dsgn.ondurList);
+yyaxis left
+yLim = ylim;
+fill([0 dur dur 0],[yLim(1) yLim(1) yLim(1)+diff(yLim)*0.02 yLim(1)+diff(yLim)*0.02],...
+    0.5.*[1 1 1],'EdgeColor','none');
+
+if printIt
+    name = 'vsmCenSur_exampleArteryAreaVel';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 
 
 
@@ -921,11 +995,13 @@ num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
 '; example vein'])
 
 
-name = 'vsmCenSur_exampleVein';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    name = 'vsmCenSur_exampleVein';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 
 
 respTcAv          = mean(respTc   ,1);
@@ -961,11 +1037,13 @@ num2str(numel(rCond{s}.(acq).(task).dsgn.onsetList)) ' trials per run' ...
 '; example vein response; error=sem across runs'])
 
 
-name = 'vsmCenSur_exampleVeinResponse';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    name = 'vsmCenSur_exampleVeinResponse';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 
 
 
@@ -975,11 +1053,13 @@ xLim = [109 168]; yLim = [69 131];
 set(ax1,'XLim',xLim,'YLim',yLim)
 
 % Export the figure (after the XLim/YLim crop) to grantFigure/
-name = 'vsmCenSur_smallFOV';
-savefig(gcf,                  fullfile(grantDir,[name '.fig']));
-print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    name = 'vsmCenSur_smallFOV';
+    savefig(gcf,                  fullfile(grantDir,[name '.fig']));
+    print(gcf,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(gcf,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(gcf,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
@@ -987,6 +1067,7 @@ end
 
 
 if 1
+printIt = 0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Figure for grant, panel B
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1074,20 +1155,22 @@ end
 title(tB,'\bf\color{yellow}lumen roi\rm\color[rgb]{1 1 1} and \bf\color{cyan}surround roi','Interpreter','tex')
 
 % Export to grantFigure/
-grantDir = fullfile(pwd,'grantFigure');
-if ~exist(grantDir,'dir'); mkdir(grantDir); end
-name = 'vsmCenSur_panelB_csArteries';
-savefig(hFpanelB,                  fullfile(grantDir,[name '.fig']));
-print(hFpanelB,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
-print(hFpanelB,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
-print(hFpanelB,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+if printIt
+    grantDir = fullfile(pwd,'grantFigure');
+    if ~exist(grantDir,'dir'); mkdir(grantDir); end
+    name = 'vsmCenSur_panelB_csArteries';
+    savefig(hFpanelB,                  fullfile(grantDir,[name '.fig']));
+    print(hFpanelB,'-dsvg', '-painters',fullfile(grantDir,[name '.svg']));
+    print(hFpanelB,'-depsc','-painters',fullfile(grantDir,[name '.eps']));
+    print(hFpanelB,'-dpng', '-r300',    fullfile(grantDir,[name '.png']));
+end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
 
 
 
-
+return
 
 
 
