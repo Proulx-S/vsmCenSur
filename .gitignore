@@ -111,6 +111,7 @@ octave-workspace
 **/*.bmp
 **/*.tiff
 **/*.svg
+**/*.eps
 
 # Cursor
 *.cursorignore
