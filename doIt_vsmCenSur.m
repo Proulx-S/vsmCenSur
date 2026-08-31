@@ -2788,8 +2788,41 @@ for S = 1:size(subList,1)
 
             %%% Extract area, diameter, velocity flow proxies
             roi{S}.(acq).(task).vessel = getAreaDiamVelFlowProxy(roi{S}.(acq).(task).vessel,'peakVox','dilate1p5',{'resp','ts'},0);
-            %%% Compute Faa
-            roi{S}.(acq).(task).vessel = getFaa(roi{S}.(acq).(task).vessel,rCond{S}.(acq).(task),dN);
+            %%% Build the onset-aligned trial index (grid + sliding-window timecourse set)
+            % 2026-08-30 PORT: the old 3-arg getFaa(vessel,rCond,dN) was DELETED from
+            % vfMRItools on 2026-06-09 (f1ac304 "cleanup getFaa.m and revised time period
+            % definition"): the former getFaa2.m was renamed onto getFaa.m. Its INDEXING half
+            % now lives in indexTs2Trial.m, and getFaa.m is a 1-arg consumer of vessel.trial.
+            % This branch of the doIt (dev) never followed that change -- branch dev-tsVSresp
+            % (531e2a6) did. Ported from there; see that branch's lines 2529-2532.
+            rc = rCond{S}.(acq).(task);
+            % tsStartTime = time of the first preprocessed (dummy-removed) ts frame on the
+            % stimulus clock = (nFrameOrig-nFrame)*tr. DERIVED here rather than read off
+            % rc.tsStartTime on purpose: indexTs2Trial documents (and uses) the POSITIVE
+            % convention tts = tsStartTime + (0:nT-1)*dt, while runCond.m's own property
+            % comment carries a contradictory "<=0" sign remark. Deriving it keeps this call
+            % self-consistent with the function actually consuming it. Any disagreement with a
+            % populated rc.tsStartTime is surfaced loudly below rather than silently absorbed.
+            assert(~isempty(rc.nFrameOrig) && ~isempty(rc.nFrame) && ~isempty(rc.tr), ...
+                'dVdD:noFrameCounts', ...
+                'rCond{%d}.%s.%s lacks nFrameOrig/nFrame/tr -- cannot derive tsStartTime.', ...
+                S, acq, task);
+            nRem        = mode(double(rc.nFrameOrig(:)) - double(rc.nFrame(:))); % dummy frames dropped from the front
+            tsStartTime = nRem * mean(double(rc.tr(:)));
+            if ~isempty(rc.tsStartTime) && abs(double(rc.tsStartTime) - tsStartTime) > 1e-6
+                warning('dVdD:tsStartTimeMismatch', ...
+                    ['rCond{%d}.%s.%s.tsStartTime (%g s) disagrees with the value derived ' ...
+                     'from nFrameOrig/nFrame/tr (%g s). Using the DERIVED value ' ...
+                     '(indexTs2Trial''s documented positive convention). Check the runCond ' ...
+                     'sign convention before trusting the faa time axis.'], ...
+                    S, acq, task, double(rc.tsStartTime), tsStartTime);
+            end
+            % indexTs2Trial reads ONLY .dsgn/.tr/.tsStartTime -- pass a plain struct so the
+            % runCond object in rCond is never mutated.
+            rcIdx = struct('dsgn',rc.dsgn,'tr',rc.tr,'tsStartTime',tsStartTime);
+            roi{S}.(acq).(task).vessel      = indexTs2Trial(roi{S}.(acq).(task).vessel,rcIdx,dN);
+            roi{S}.(acq).(task).tsStartTime = tsStartTime;   % consumed by the window setup below
+            clear rc rcIdx nRem
 
         end
     end
@@ -2814,11 +2847,22 @@ end
 vessel = cat(1,vessel{:});
 
 
-% design (onset list / stim duration) for this acq/task
-dsgn = [];
+% design (onset list / stim duration) for this acq/task, plus the ts dummy-offset
+dsgn = []; tsStartTime = [];
 for S = 1:size(subList,1)
     if isfield(roi{S},acq) && isfield(roi{S}.(acq),task)
-        dsgn = rCond{S}.(acq).(task).dsgn; break
+        dsgn = rCond{S}.(acq).(task).dsgn;
+        % Set in the indexTs2Trial loop above (NOT part of the checkpoint), so it is
+        % required here with no fallback -- a run that skipped that loop must fail loudly
+        % rather than silently produce a faa time axis that is off by nDummy*tr.
+        if ~isfield(roi{S}.(acq).(task),'tsStartTime') || isempty(roi{S}.(acq).(task).tsStartTime)
+            error('dVdD:noTsStartTime', ...
+                ['roi{%d}.%s.%s.tsStartTime is missing/empty. It is set in the ' ...
+                 '"Extract area, diameter, velocity flow proxies"/indexTs2Trial loop at the ' ...
+                 'top of this section, which must have run in this session.'], S, acq, task);
+        end
+        tsStartTime = roi{S}.(acq).(task).tsStartTime;
+        break
     end
 end
 
@@ -2827,19 +2871,27 @@ end
 dtTs = mean(rCond{1}.vfMRI_dflt_none.task_50sPrd5sDur.tr);
 iStartStim = 0;          iEndStim = mean(dsgn.ondurList)./dtTs-1;
 iStartPost = iEndStim+1; iEndPost = Inf;
-% pre-stim window: from the first onset-relative time point of the run (the
-% left edge of the faa timecourse / top-middle panel, set by the dN=0 call at
-% getFaa(...,0) above) up to the point just before onset. round(-onset/dt)
-% reproduces align.idxTrialOnset(1,1) used as the timecourse's first delay.
-iStartPre  = round(-dsgn.onsetList(1)./dtTs); iEndPre = -1;
+% pre-stim window: from the first onset-relative time point of the run (the left edge of
+% the faa timecourse / top-middle panel, set by the indexTs2Trial(...,dN) call above) up to
+% the point just before onset. indexTs2Trial builds its grid AT tsStartTime, so the run's
+% first ts frame sits at true-onset-relative time -(onset - tsStartTime) -- hence the
+% -tsStartTime term, without which every window (and the whole faa time axis) is early by
+% nDummy*tr (~3.36 s here). See .bass/memory/project_getfaa_dummy_onset_offset.md.
+iStartPre  = round(-(dsgn.onsetList(1)-tsStartTime)./dtTs); iEndPre = -1;
 % iStartStim = 0; iEndStim = 7;
 % iStartPost = 8; iEndPost = Inf;
 winStim = [iStartStim iEndStim];
 winPost = [iStartPost iEndPost];
 winPre  = [iStartPre  iEndPre];
-vessel  = getFaa(vessel,[],winStim); % append during-stim faa to faa.res
-vessel  = getFaa(vessel,[],winPost); % append post-stim  faa to faa.res
-vessel  = getFaa(vessel,[],winPre);  % append pre-stim   faa to faa.res
+% Append the during/post/pre window-sets to vessel.trial (the sliding timecourse set was
+% built by the indexTs2Trial call in the loop above), then compute faa for ALL of them in
+% one shot -- the current getFaa is 1-arg and derives every window from vessel.trial.
+% The downstream panels locate each set by matching .dN (see kTc/kStim/kPost/kPre below),
+% not by append order, so these three stay independent of ordering.
+vessel  = indexTs2Trial(vessel,[],winStim); % during-stim window-set -> trial.res
+vessel  = indexTs2Trial(vessel,[],winPost); % post-stim  window-set
+vessel  = indexTs2Trial(vessel,[],winPre);  % pre-stim   window-set
+vessel  = getFaa(vessel);                   % faa for every window-set (timecourse + during/post/pre)
 
 
 
